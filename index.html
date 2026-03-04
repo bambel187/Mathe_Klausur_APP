@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📐 Mathe Lern-App</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:#e2e8f0; min-height:100vh; }
+button { cursor:pointer; transition:all 0.2s; }
+button:hover { opacity:0.85; transform:translateY(-1px); }
+input,textarea { font-family:'Segoe UI',sans-serif; }
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.2); border-radius:3px; }
+.loading-dots::after { content:''; animation: dots 1.5s infinite; }
+@keyframes dots { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} }
+.fade-in { animation: fadeIn 0.4s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+const { useState, useEffect, useRef } = React;
+
+const TOPICS = [
+  { id:'bruch', label:'Bruchrechnung', icon:'½', color:'#6366f1', desc:'Addition, Subtraktion, Multiplikation, Division von Brüchen' },
+  { id:'prozent', label:'Prozentrechnung', icon:'%', color:'#f59e0b', desc:'Prozentwert, Prozentsatz, Grundwert, Zinsen' },
+  { id:'geo', label:'Geometrie', icon:'📐', color:'#10b981', desc:'Flächen, Umfang, Volumen, Raumgeometrie' },
+  { id:'schluss', label:'Schlussrechnung', icon:'⚙️', color:'#ef4444', desc:'Dreisatz, direkte & indirekte Proportionalität' },
+  { id:'gleich', label:'Gleichungslehre', icon:'x', color:'#8b5cf6', desc:'Lineare Gleichungen, Umformen, Lösen' },
+];
+
+const LEVELS = [
+  { id:'leicht', label:'⭐ Leicht', desc:'Einfache Aufgaben zum Einstieg' },
+  { id:'mittel', label:'⭐⭐ Mittel', desc:'Normale Klausuraufgaben' },
+  { id:'schwer', label:'⭐⭐⭐ Schwer', desc:'Herausfordernde Aufgaben' },
+];
+
+const SYSTEM_PROMPT = `Du bist ein freundlicher Mathematiklehrer für Schüler der Mittelschule/Realschule. 
+Deine Aufgabe ist es, Übungsaufgaben zu erstellen und Lösungen Schritt für Schritt zu erklären.
+
+WICHTIG: Antworte IMMER auf Deutsch. Sei ermutigend und geduldig.
+
+Wenn du eine Aufgabe generierst, formatiere sie so:
+AUFGABE: [Die Aufgabe]
+HINWEIS: [Ein hilfreicher Hinweis ohne die Lösung zu verraten]
+
+Wenn du eine Lösung erklärst, gehe jeden Schritt einzeln durch und erkläre WARUM man so rechnet.
+Verwende einfache Sprache und gib am Ende eine Zusammenfassung.`;
+
+function buildPrompt(topic, level, type) {
+  const topicNames = {
+    bruch: 'Bruchrechnung (Addition, Subtraktion, Multiplikation, Division von Brüchen, gemischte Brüche, kürzen, erweitern, Textaufgaben mit Brüchen)',
+    prozent: 'Prozentrechnung (Prozentwert berechnen, Prozentsatz berechnen, Grundwert berechnen, Preisänderungen, Rabatte, Zinsen p.a.)',
+    geo: 'Geometrie (Flächenberechnung von Rechtecken, Dreiecken, zusammengesetzten Flächen, Raumgeometrie, Praxisaufgaben wie Streichen/Fliesen)',
+    schluss: 'Schlussrechnung / Dreisatz (direkte und indirekte Proportionalität, Arbeitsaufgaben mit mehreren Arbeitern, Zeit-Aufgaben)',
+    gleich: 'Gleichungslehre (lineare Gleichungen mit einer Unbekannten x lösen, Gleichungen umformen, Klammern auflösen, Probe)',
+  };
+  
+  const levelInstr = {
+    leicht: 'Erstelle eine EINFACHE Aufgabe für Anfänger. Verwende kleine, übersichtliche Zahlen. Maximal 1-2 Rechenschritte.',
+    mittel: 'Erstelle eine MITTEL schwere Aufgabe wie in einer normalen Schulklausur. 2-3 Rechenschritte, realistische Zahlen.',
+    schwer: 'Erstelle eine SCHWERE, anspruchsvolle Aufgabe. Mehrere Rechenschritte, komplexere Zahlen, evtl. Textaufgabe.',
+  };
+
+  if (type === 'neue_aufgabe') {
+    return `Erstelle eine neue Übungsaufgabe zum Thema: ${topicNames[topic]}.
+Schwierigkeitsgrad: ${levelInstr[level]}
+Die Aufgabe darf NICHT identisch mit folgenden Originalklausuraufgaben sein, soll aber ähnliche Kompetenzen testen.
+Variiere die Zahlen, den Kontext und die Formulierung kreativ.
+Formatiere: AUFGABE: ... dann HINWEIS: ...`;
+  }
+}
+
+// ============ SCREENS ============
+
+function WelcomeScreen({ onStart }) {
+  const [name, setName] = useState('');
+  return (
+    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+      <div className="fade-in" style={{maxWidth:480,width:'100%',textAlign:'center'}}>
+        <div style={{fontSize:72,marginBottom:16}}>📐</div>
+        <h1 style={{fontSize:32,fontWeight:900,color:'#fff',marginBottom:8}}>Mathe Lern-App</h1>
+        <p style={{color:'#94a3b8',marginBottom:40,fontSize:16}}>Interaktives Üben mit KI-Unterstützung</p>
+        
+        <div style={{background:'rgba(255,255,255,0.05)',borderRadius:20,padding:32,border:'1px solid rgba(255,255,255,0.1)',marginBottom:24}}>
+          <p style={{color:'#cbd5e1',marginBottom:16,fontWeight:600}}>Wie heißt du?</p>
+          <input
+            value={name}
+            onChange={e=>setName(e.target.value)}
+            onKeyDown={e=>e.key==='Enter'&&name.trim()&&onStart(name.trim())}
+            placeholder="Deinen Namen eingeben..."
+            style={{width:'100%',padding:'14px 18px',borderRadius:12,border:'2px solid rgba(255,255,255,0.15)',background:'rgba(255,255,255,0.08)',color:'#fff',fontSize:18,outline:'none',textAlign:'center',marginBottom:20}}
+            autoFocus
+          />
+          <button
+            onClick={()=>name.trim()&&onStart(name.trim())}
+            disabled={!name.trim()}
+            style={{width:'100%',padding:'14px',borderRadius:12,border:'none',background:name.trim()?'linear-gradient(135deg,#6366f1,#8b5cf6)':'rgba(255,255,255,0.1)',color:name.trim()?'#fff':'#64748b',fontSize:16,fontWeight:700}}
+          >
+            Los geht's! 🚀
+          </button>
+        </div>
+
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
+          {['5 Themen','3 Schwierigkeitsgrade','KI-Erklärungen'].map(f=>(
+            <div key={f} style={{background:'rgba(255,255,255,0.04)',borderRadius:12,padding:'12px 8px',fontSize:12,color:'#64748b'}}>✓ {f}</div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TopicScreen({ name, onSelect, stats }) {
+  return (
+    <div style={{maxWidth:800,margin:'0 auto',padding:24}}>
+      <div className="fade-in">
+        <div style={{textAlign:'center',marginBottom:32}}>
+          <h2 style={{fontSize:26,fontWeight:800,color:'#fff'}}>Hallo, {name}! 👋</h2>
+          <p style={{color:'#64748b',marginTop:6}}>Welches Thema möchtest du üben?</p>
+        </div>
+
+        {/* Stats Bar */}
+        {stats.total > 0 && (
+          <div style={{background:'rgba(255,255,255,0.05)',borderRadius:16,padding:16,marginBottom:24,display:'flex',gap:24,justifyContent:'center',flexWrap:'wrap'}}>
+            <span style={{color:'#94a3b8',fontSize:14}}>📊 Aufgaben gelöst: <strong style={{color:'#fff'}}>{stats.total}</strong></span>
+            <span style={{color:'#94a3b8',fontSize:14}}>✅ Richtig: <strong style={{color:'#86efac'}}>{stats.correct}</strong></span>
+            <span style={{color:'#94a3b8',fontSize:14}}>💪 Quote: <strong style={{color:'#fbbf24'}}>{stats.total>0?Math.round(stats.correct/stats.total*100):0}%</strong></span>
+          </div>
+        )}
+
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:16}}>
+          {TOPICS.map(t=>(
+            <button key={t.id} onClick={()=>onSelect(t)} style={{background:'rgba(255,255,255,0.04)',border:`1px solid ${t.color}44`,borderRadius:20,padding:24,textAlign:'left',color:'#fff',position:'relative',overflow:'hidden'}}>
+              <div style={{fontSize:36,marginBottom:12}}>{t.icon}</div>
+              <div style={{fontWeight:800,fontSize:17,marginBottom:6,color:t.color}}>{t.label}</div>
+              <div style={{fontSize:13,color:'#64748b',lineHeight:1.4}}>{t.desc}</div>
+              {stats.byTopic[t.id]>0 && (
+                <div style={{position:'absolute',top:12,right:12,background:t.color+'33',borderRadius:20,padding:'2px 10px',fontSize:12,color:t.color}}>
+                  {stats.byTopic[t.id]} geübt
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LevelScreen({ topic, onSelect, onBack }) {
+  return (
+    <div style={{maxWidth:500,margin:'0 auto',padding:24}}>
+      <div className="fade-in">
+        <button onClick={onBack} style={{background:'none',border:'none',color:'#64748b',fontSize:14,marginBottom:24,padding:0}}>← Zurück</button>
+        <div style={{textAlign:'center',marginBottom:32}}>
+          <div style={{fontSize:48,marginBottom:8}}>{topic.icon}</div>
+          <h2 style={{fontSize:24,fontWeight:800,color:'#fff'}}>{topic.label}</h2>
+          <p style={{color:'#64748b',marginTop:6}}>Wähle deinen Schwierigkeitsgrad</p>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          {LEVELS.map(l=>(
+            <button key={l.id} onClick={()=>onSelect(l)} style={{background:'rgba(255,255,255,0.05)',border:`1px solid rgba(255,255,255,0.1)`,borderRadius:16,padding:'20px 24px',textAlign:'left',color:'#fff'}}>
+              <div style={{fontWeight:700,fontSize:16,marginBottom:4}}>{l.label}</div>
+              <div style={{fontSize:13,color:'#64748b'}}>{l.desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ExerciseScreen({ name, topic, level, onBack, onUpdateStats }) {
+  const [phase, setPhase] = useState('loading'); // loading | task | answer | solution | result
+  const [taskText, setTaskText] = useState('');
+  const [hint, setHint] = useState('');
+  const [userAnswer, setUserAnswer] = useState('');
+  const [solution, setSolution] = useState('');
+  const [loadingMsg, setLoadingMsg] = useState('Aufgabe wird generiert');
+  const [selfRating, setSelfRating] = useState(null);
+  const [sessionStats, setSessionStats] = useState({correct:0,total:0});
+  const [showHint, setShowHint] = useState(false);
+  const [solutionLoading, setSolutionLoading] = useState(false);
+
+  useEffect(()=>{ generateTask(); },[]);
+
+  async function callClaude(messages, systemOverride) {
+    const resp = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        system: systemOverride || SYSTEM_PROMPT,
+        messages
+      })
+    });
+    const data = await resp.json();
+    return data.content?.[0]?.text || '';
+  }
+
+  async function generateTask() {
+    setPhase('loading');
+    setLoadingMsg('Aufgabe wird generiert');
+    setUserAnswer('');
+    setSolution('');
+    setSelfRating(null);
+    setShowHint(false);
+    try {
+      const prompt = buildPrompt(topic.id, level.id, 'neue_aufgabe');
+      const text = await callClaude([{role:'user',content:prompt}]);
+      const aufgabeMatch = text.match(/AUFGABE:\s*([\s\S]*?)(?=HINWEIS:|$)/i);
+      const hinweisMatch = text.match(/HINWEIS:\s*([\s\S]*?)$/i);
+      setTaskText(aufgabeMatch ? aufgabeMatch[1].trim() : text);
+      setHint(hinweisMatch ? hinweisMatch[1].trim() : '');
+      setPhase('task');
+    } catch(e) {
+      setTaskText('Fehler beim Laden. Bitte versuche es erneut.');
+      setPhase('task');
+    }
+  }
+
+  async function getSolution() {
+    setSolutionLoading(true);
+    setPhase('solution');
+    try {
+      const prompt = `Aufgabe: ${taskText}
+${userAnswer ? `Antwort des Schülers: ${userAnswer}` : 'Der Schüler möchte die Lösung sehen.'}
+
+Erkläre die vollständige Lösung Schritt für Schritt. 
+Wenn der Schüler eine Antwort gegeben hat, kommentiere diese zuerst (richtig/teilweise richtig/falsch) und erkläre dann den korrekten Lösungsweg.
+Sei ermutigend und lehrreich. Erkläre WARUM jeder Schritt gemacht wird.`;
+      const text = await callClaude([{role:'user',content:prompt}]);
+      setSolution(text);
+    } catch(e) {
+      setSolution('Fehler beim Laden der Lösung.');
+    }
+    setSolutionLoading(false);
+  }
+
+  function handleRating(correct) {
+    setSelfRating(correct);
+    const newStats = {correct: sessionStats.correct+(correct?1:0), total: sessionStats.total+1};
+    setSessionStats(newStats);
+    onUpdateStats(topic.id, correct);
+    setPhase('result');
+  }
+
+  const btnBase = {border:'none',borderRadius:12,padding:'12px 20px',fontWeight:700,fontSize:14,color:'#fff'};
+
+  return (
+    <div style={{maxWidth:700,margin:'0 auto',padding:24}}>
+      <div className="fade-in">
+        {/* Header */}
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
+          <button onClick={onBack} style={{background:'none',border:'none',color:'#64748b',fontSize:14,padding:0}}>← Themen</button>
+          <div style={{display:'flex',gap:8,alignItems:'center'}}>
+            <span style={{background:topic.color+'33',color:topic.color,borderRadius:20,padding:'4px 12px',fontSize:12,fontWeight:700}}>{topic.label}</span>
+            <span style={{background:'rgba(255,255,255,0.08)',color:'#94a3b8',borderRadius:20,padding:'4px 12px',fontSize:12}}>{level.label}</span>
+          </div>
+          <span style={{color:'#64748b',fontSize:13}}>✅ {sessionStats.correct}/{sessionStats.total}</span>
+        </div>
+
+        {/* LOADING */}
+        {phase === 'loading' && (
+          <div style={{textAlign:'center',padding:80}}>
+            <div style={{fontSize:48,marginBottom:16}}>🤖</div>
+            <div style={{color:'#94a3b8',fontSize:16}} className="loading-dots">{loadingMsg}</div>
+          </div>
+        )}
+
+        {/* TASK */}
+        {(phase === 'task' || phase === 'answer') && (
+          <div>
+            <div style={{background:'rgba(255,255,255,0.05)',borderRadius:20,padding:28,border:'1px solid rgba(255,255,255,0.1)',marginBottom:20}}>
+              <div style={{color:'#64748b',fontSize:12,textTransform:'uppercase',letterSpacing:1,marginBottom:12}}>Aufgabe</div>
+              <div style={{fontSize:16,lineHeight:1.7,color:'#e2e8f0',whiteSpace:'pre-wrap'}}>{taskText}</div>
+            </div>
+
+            {hint && (
+              <div style={{marginBottom:16}}>
+                {!showHint ? (
+                  <button onClick={()=>setShowHint(true)} style={{...btnBase,background:'rgba(255,255,255,0.08)',color:'#94a3b8',fontSize:13}}>
+                    💡 Hinweis anzeigen
+                  </button>
+                ) : (
+                  <div style={{background:'rgba(251,191,36,0.1)',borderRadius:12,padding:16,border:'1px solid rgba(251,191,36,0.3)',color:'#fbbf24',fontSize:14}}>
+                    💡 <strong>Hinweis:</strong> {hint}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={{marginBottom:16}}>
+              <div style={{color:'#64748b',fontSize:13,marginBottom:8}}>Deine Lösung (Rechenweg aufschreiben):</div>
+              <textarea
+                value={userAnswer}
+                onChange={e=>setUserAnswer(e.target.value)}
+                placeholder="Hier deinen Rechenweg eingeben..."
+                rows={5}
+                style={{width:'100%',padding:16,borderRadius:12,border:'1px solid rgba(255,255,255,0.1)',background:'rgba(255,255,255,0.06)',color:'#fff',fontSize:14,outline:'none',resize:'vertical',lineHeight:1.6}}
+              />
+            </div>
+
+            <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+              <button onClick={getSolution} style={{...btnBase,background:'linear-gradient(135deg,#6366f1,#8b5cf6)',flex:1}}>
+                {userAnswer.trim() ? '✓ Lösung überprüfen' : '📖 Lösung zeigen'}
+              </button>
+              <button onClick={generateTask} style={{...btnBase,background:'rgba(255,255,255,0.08)',color:'#94a3b8'}}>
+                🔄 Neue Aufgabe
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* SOLUTION */}
+        {phase === 'solution' && (
+          <div>
+            <div style={{background:'rgba(255,255,255,0.05)',borderRadius:20,padding:24,border:'1px solid rgba(255,255,255,0.1)',marginBottom:20}}>
+              <div style={{color:'#64748b',fontSize:12,textTransform:'uppercase',letterSpacing:1,marginBottom:12}}>Aufgabe</div>
+              <div style={{fontSize:15,color:'#94a3b8',lineHeight:1.6,whiteSpace:'pre-wrap'}}>{taskText}</div>
+            </div>
+
+            {userAnswer && (
+              <div style={{background:'rgba(99,102,241,0.1)',borderRadius:16,padding:20,border:'1px solid rgba(99,102,241,0.3)',marginBottom:20}}>
+                <div style={{color:'#818cf8',fontSize:12,textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>Deine Antwort</div>
+                <div style={{color:'#c7d2fe',fontSize:14,whiteSpace:'pre-wrap'}}>{userAnswer}</div>
+              </div>
+            )}
+
+            <div style={{background:'rgba(16,185,129,0.08)',borderRadius:20,padding:24,border:'1px solid rgba(16,185,129,0.2)',marginBottom:20}}>
+              <div style={{color:'#10b981',fontSize:12,textTransform:'uppercase',letterSpacing:1,marginBottom:12}}>🤖 KI-Erklärung</div>
+              {solutionLoading ? (
+                <div style={{color:'#64748b'}} className="loading-dots">Lösung wird erklärt</div>
+              ) : (
+                <div style={{fontSize:15,lineHeight:1.8,color:'#d1fae5',whiteSpace:'pre-wrap'}}>{solution}</div>
+              )}
+            </div>
+
+            {!solutionLoading && selfRating === null && (
+              <div style={{background:'rgba(255,255,255,0.05)',borderRadius:16,padding:20,textAlign:'center'}}>
+                <p style={{color:'#94a3b8',marginBottom:16,fontSize:14}}>Hast du die Aufgabe richtig gelöst?</p>
+                <div style={{display:'flex',gap:12,justifyContent:'center'}}>
+                  <button onClick={()=>handleRating(true)} style={{...btnBase,background:'linear-gradient(135deg,#10b981,#059669)',padding:'12px 28px'}}>✅ Ja, richtig!</button>
+                  <button onClick={()=>handleRating(false)} style={{...btnBase,background:'linear-gradient(135deg,#ef4444,#dc2626)',padding:'12px 28px'}}>❌ Noch nicht</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* RESULT */}
+        {phase === 'result' && (
+          <div className="fade-in" style={{textAlign:'center'}}>
+            <div style={{fontSize:72,marginBottom:16}}>{selfRating ? '🎉' : '💪'}</div>
+            <h3 style={{fontSize:22,fontWeight:800,color:'#fff',marginBottom:8}}>
+              {selfRating ? 'Super gemacht!' : 'Weiter üben!'}
+            </h3>
+            <p style={{color:'#64748b',marginBottom:32}}>
+              {selfRating ? 'Du hast die Aufgabe richtig gelöst. Mach weiter so!' : 'Nicht aufgeben – beim nächsten Mal klappt es!'}
+            </p>
+
+            <div style={{background:'rgba(255,255,255,0.05)',borderRadius:16,padding:20,marginBottom:24,display:'flex',gap:24,justifyContent:'center'}}>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:28,fontWeight:900,color:'#86efac'}}>{sessionStats.correct}</div>
+                <div style={{fontSize:12,color:'#64748b'}}>Richtig</div>
+              </div>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:28,fontWeight:900,color:'#fff'}}>{sessionStats.total}</div>
+                <div style={{fontSize:12,color:'#64748b'}}>Gesamt</div>
+              </div>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:28,fontWeight:900,color:'#fbbf24'}}>{Math.round(sessionStats.correct/sessionStats.total*100)}%</div>
+                <div style={{fontSize:12,color:'#64748b'}}>Quote</div>
+              </div>
+            </div>
+
+            <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}}>
+              <button onClick={generateTask} style={{...btnBase,background:'linear-gradient(135deg,#6366f1,#8b5cf6)',padding:'14px 28px',fontSize:15}}>
+                🔄 Nächste Aufgabe
+              </button>
+              <button onClick={onBack} style={{...btnBase,background:'rgba(255,255,255,0.08)',color:'#94a3b8',padding:'14px 28px',fontSize:15}}>
+                📚 Thema wechseln
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============ MAIN APP ============
+
+function App() {
+  const [screen, setScreen] = useState('welcome'); // welcome | topics | level | exercise
+  const [studentName, setStudentName] = useState('');
+  const [selectedTopic, setSelectedTopic] = useState(null);
+  const [selectedLevel, setSelectedLevel] = useState(null);
+  const [stats, setStats] = useState({ total:0, correct:0, byTopic:{bruch:0,prozent:0,geo:0,schluss:0,gleich:0} });
+
+  function handleStart(name) { setStudentName(name); setScreen('topics'); }
+
+  function handleTopicSelect(topic) { setSelectedTopic(topic); setScreen('level'); }
+
+  function handleLevelSelect(level) { setSelectedLevel(level); setScreen('exercise'); }
+
+  function handleUpdateStats(topicId, correct) {
+    setStats(s => ({
+      total: s.total+1,
+      correct: s.correct+(correct?1:0),
+      byTopic: {...s.byTopic, [topicId]: s.byTopic[topicId]+1}
+    }));
+  }
+
+  function copyStats() {
+    const text = `📊 Lernfortschritt von ${studentName}
+Datum: ${new Date().toLocaleDateString('de-DE')}
+Aufgaben gesamt: ${stats.total}
+Richtig: ${stats.correct}
+Quote: ${stats.total>0?Math.round(stats.correct/stats.total*100):0}%
+
+Nach Thema:
+${TOPICS.map(t=>`• ${t.label}: ${stats.byTopic[t.id]} Aufgaben geübt`).join('\n')}`;
+    navigator.clipboard.writeText(text).catch(()=>{});
+    alert('Lernfortschritt kopiert! Du kannst ihn jetzt in eine E-Mail einfügen.');
+  }
+
+  return (
+    <div style={{minHeight:'100vh',background:'#0f172a'}}>
+      {/* Top Nav */}
+      {screen !== 'welcome' && (
+        <div style={{borderBottom:'1px solid rgba(255,255,255,0.06)',padding:'12px 24px',display:'flex',justifyContent:'space-between',alignItems:'center',position:'sticky',top:0,background:'#0f172a',zIndex:10}}>
+          <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <span style={{fontSize:20}}>📐</span>
+            <span style={{fontWeight:700,color:'#fff',fontSize:15}}>Mathe Lern-App</span>
+          </div>
+          <div style={{display:'flex',gap:12,alignItems:'center'}}>
+            <span style={{color:'#64748b',fontSize:13}}>👤 {studentName}</span>
+            {stats.total > 0 && (
+              <button onClick={copyStats} style={{background:'rgba(255,255,255,0.06)',border:'none',borderRadius:20,padding:'6px 14px',color:'#94a3b8',fontSize:12,fontWeight:600}}>
+                📋 Fortschritt kopieren
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {screen === 'welcome' && <WelcomeScreen onStart={handleStart} />}
+      {screen === 'topics' && <TopicScreen name={studentName} onSelect={handleTopicSelect} stats={stats} />}
+      {screen === 'level' && <LevelScreen topic={selectedTopic} onSelect={handleLevelSelect} onBack={()=>setScreen('topics')} />}
+      {screen === 'exercise' && (
+        <ExerciseScreen
+          name={studentName}
+          topic={selectedTopic}
+          level={selectedLevel}
+          onBack={()=>setScreen('topics')}
+          onUpdateStats={handleUpdateStats}
+        />
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
