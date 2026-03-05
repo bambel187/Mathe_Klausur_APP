@@ -10,142 +10,735 @@
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:#e2e8f0; min-height:100vh; }
-button { cursor:pointer; transition:all 0.2s; }
+button { cursor:pointer; transition:all 0.18s; }
 button:hover { opacity:0.85; transform:translateY(-1px); }
-input,textarea { font-family:'Segoe UI',sans-serif; }
+textarea,input { font-family:'Segoe UI',sans-serif; }
 ::-webkit-scrollbar { width:6px; }
-::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.2); border-radius:3px; }
-.loading-dots::after { content:''; animation: dots 1.5s infinite; }
-@keyframes dots { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} }
-.fade-in { animation: fadeIn 0.4s ease; }
-@keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.15); border-radius:3px; }
+.fade-in { animation:fadeIn 0.35s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
-
 const { useState, useEffect, useRef } = React;
 
-const TOPICS = [
-  { id:'bruch', label:'Bruchrechnung', icon:'½', color:'#6366f1', desc:'Addition, Subtraktion, Multiplikation, Division von Brüchen' },
-  { id:'prozent', label:'Prozentrechnung', icon:'%', color:'#f59e0b', desc:'Prozentwert, Prozentsatz, Grundwert, Zinsen' },
-  { id:'geo', label:'Geometrie', icon:'📐', color:'#10b981', desc:'Flächen, Umfang, Volumen, Raumgeometrie' },
-  { id:'schluss', label:'Schlussrechnung', icon:'⚙️', color:'#ef4444', desc:'Dreisatz, direkte & indirekte Proportionalität' },
-  { id:'gleich', label:'Gleichungslehre', icon:'x', color:'#8b5cf6', desc:'Lineare Gleichungen, Umformen, Lösen' },
-];
+// ══════════════════════════════════════════════
+// HELPER MATH
+// ══════════════════════════════════════════════
+function gcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){let t=b;b=a%b;a=t;} return a||1; }
+function lcm(a,b){ return Math.abs(a*b)/gcd(a,b); }
+function simplify(n,d){ if(d===0) return [n,d]; const g=gcd(Math.abs(n),Math.abs(d)); return [n/g,d/g]; }
+function fracStr(n,d){ const [sn,sd]=simplify(n,d); if(sd===1) return `${sn}`; if(sn===0) return '0'; return `${sn}/${sd}`; }
+function fracStrFull(n,d){ const [sn,sd]=simplify(n,d); if(sd===1) return `${sn}`; if(Math.abs(sn)>sd){ const w=Math.trunc(sn/sd); const r=Math.abs(sn%sd); return r===0?`${w}`:`${w} ${r}/${sd}`; } return `${sn}/${sd}`; }
+function rnd(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function shuffle(arr){ return [...arr].sort(()=>Math.random()-0.5); }
+// primes list for denominators
+const PRIMES=[2,3,5,7,11,13];
+function niceDenom(){ return pick([2,3,4,5,6,7,8,9,10,12]); }
 
-const LEVELS = [
-  { id:'leicht', label:'⭐ Leicht', desc:'Einfache Aufgaben zum Einstieg' },
-  { id:'mittel', label:'⭐⭐ Mittel', desc:'Normale Klausuraufgaben' },
-  { id:'schwer', label:'⭐⭐⭐ Schwer', desc:'Herausfordernde Aufgaben' },
-];
+// ══════════════════════════════════════════════
+// AUFGABEN-GENERATOREN
+// ══════════════════════════════════════════════
 
-const SYSTEM_PROMPT = `Du bist ein freundlicher Mathematiklehrer für Schüler der Mittelschule/Realschule. 
-Deine Aufgabe ist es, Übungsaufgaben zu erstellen und Lösungen Schritt für Schritt zu erklären.
+// ── BRUCHRECHNUNG ──
+function genBruch(level){
+  const types = level==='leicht'
+    ? ['add_same','sub_same','reduce','mult_simple','to_mixed']
+    : level==='mittel'
+    ? ['add_diff','sub_diff','mult','div','mixed_add','text_bruch']
+    : ['chain','complex_text','nested','vergleich'];
 
-WICHTIG: Antworte IMMER auf Deutsch. Sei ermutigend und geduldig.
+  const type = pick(types);
 
-Wenn du eine Aufgabe generierst, formatiere sie so:
-AUFGABE: [Die Aufgabe]
-HINWEIS: [Ein hilfreicher Hinweis ohne die Lösung zu verraten]
-
-Wenn du eine Lösung erklärst, gehe jeden Schritt einzeln durch und erkläre WARUM man so rechnet.
-Verwende einfache Sprache und gib am Ende eine Zusammenfassung.`;
-
-function buildPrompt(topic, level, type) {
-  const topicNames = {
-    bruch: 'Bruchrechnung (Addition, Subtraktion, Multiplikation, Division von Brüchen, gemischte Brüche, kürzen, erweitern, Textaufgaben mit Brüchen)',
-    prozent: 'Prozentrechnung (Prozentwert berechnen, Prozentsatz berechnen, Grundwert berechnen, Preisänderungen, Rabatte, Zinsen p.a.)',
-    geo: 'Geometrie (Flächenberechnung von Rechtecken, Dreiecken, zusammengesetzten Flächen, Raumgeometrie, Praxisaufgaben wie Streichen/Fliesen)',
-    schluss: 'Schlussrechnung / Dreisatz (direkte und indirekte Proportionalität, Arbeitsaufgaben mit mehreren Arbeitern, Zeit-Aufgaben)',
-    gleich: 'Gleichungslehre (lineare Gleichungen mit einer Unbekannten x lösen, Gleichungen umformen, Klammern auflösen, Probe)',
-  };
-  
-  const levelInstr = {
-    leicht: 'Erstelle eine EINFACHE Aufgabe für Anfänger. Verwende kleine, übersichtliche Zahlen. Maximal 1-2 Rechenschritte.',
-    mittel: 'Erstelle eine MITTEL schwere Aufgabe wie in einer normalen Schulklausur. 2-3 Rechenschritte, realistische Zahlen.',
-    schwer: 'Erstelle eine SCHWERE, anspruchsvolle Aufgabe. Mehrere Rechenschritte, komplexere Zahlen, evtl. Textaufgabe.',
-  };
-
-  if (type === 'neue_aufgabe') {
-    return `Erstelle eine neue Übungsaufgabe zum Thema: ${topicNames[topic]}.
-Schwierigkeitsgrad: ${levelInstr[level]}
-Die Aufgabe darf NICHT identisch mit folgenden Originalklausuraufgaben sein, soll aber ähnliche Kompetenzen testen.
-Variiere die Zahlen, den Kontext und die Formulierung kreativ.
-Formatiere: AUFGABE: ... dann HINWEIS: ...`;
+  if(type==='add_same'){
+    const d=niceDenom(); const n1=rnd(1,d-1); const n2=rnd(1,d-n1);
+    const [rn,rd]=simplify(n1+n2,d);
+    return { q:`Berechne und kürze falls möglich:\n${n1}/${d} + ${n2}/${d}`, h:`Gleiche Nenner: Zähler addieren, Nenner bleibt ${d}.`,
+      s:`${n1}/${d} + ${n2}/${d} = ${n1+n2}/${d}${rn!==n1+n2||rd!==d?' = **'+fracStr(rn,rd)+'** ✓':' = **'+fracStr(rn,rd)+'** ✓'}\n📌 Gleiche Nenner → nur Zähler addieren!`};
   }
+  if(type==='sub_same'){
+    const d=niceDenom(); const n1=rnd(2,d-1); const n2=rnd(1,n1-1);
+    const [rn,rd]=simplify(n1-n2,d);
+    return { q:`Berechne und kürze falls möglich:\n${n1}/${d} - ${n2}/${d}`, h:`Gleiche Nenner: Zähler subtrahieren.`,
+      s:`${n1}/${d} - ${n2}/${d} = ${n1-n2}/${d} = **${fracStr(rn,rd)}** ✓`};
+  }
+  if(type==='reduce'){
+    const d=pick([4,6,8,9,10,12,15,16,18,20]); const g=pick([2,3,4,5].filter(x=>d%x===0));
+    const n=g*rnd(1,d/g-1);
+    const [rn,rd]=simplify(n,d);
+    return { q:`Kürze so weit wie möglich:\n${n}/${d}`, h:`ggT(${n}, ${d}) = ${gcd(n,d)}`,
+      s:`${n}/${d} ÷ ${gcd(n,d)} = **${rn}/${rd}** ✓\nggT(${n},${d}) = ${gcd(n,d)}`};
+  }
+  if(type==='mult_simple'){
+    const n1=rnd(1,5); const d1=pick([2,3,4,5,6]); const n2=rnd(1,5); const d2=pick([2,3,4,5,6]);
+    const [rn,rd]=simplify(n1*n2,d1*d2);
+    return { q:`Berechne:\n${n1}/${d1} · ${n2}/${d2}`, h:`Zähler × Zähler, Nenner × Nenner, dann kürzen.`,
+      s:`${n1}/${d1} · ${n2}/${d2} = ${n1*n2}/${d1*d2} = **${fracStr(rn,rd)}** ✓`};
+  }
+  if(type==='to_mixed'){
+    const d=pick([2,3,4,5,6,7,8]); const w=rnd(1,5); const r=rnd(1,d-1);
+    const n=w*d+r;
+    return { q:`Wandle in eine gemischte Zahl um:\n${n}/${d}`, h:`${n} ÷ ${d} = ${w} Rest ${r}`,
+      s:`${n} ÷ ${d} = ${w} Rest ${r}\n→ **${w} ${r}/${d}** ✓`};
+  }
+  if(type==='add_diff'){
+    const d1=pick([2,3,4,5,6]); const d2=pick([2,3,4,5,6].filter(x=>x!==d1));
+    const hn=lcm(d1,d2); const n1=rnd(1,d1-1); const n2=rnd(1,d2-1);
+    const sum_n=n1*(hn/d1)+n2*(hn/d2);
+    const [rn,rd]=simplify(sum_n,hn);
+    return { q:`Berechne:\n${n1}/${d1} + ${n2}/${d2}`, h:`Hauptnenner = kgV(${d1}, ${d2}) = ${hn}`,
+      s:`HN = ${hn}\n${n1}/${d1} = ${n1*(hn/d1)}/${hn}\n${n2}/${d2} = ${n2*(hn/d2)}/${hn}\n→ ${n1*(hn/d1)}/${hn} + ${n2*(hn/d2)}/${hn} = ${sum_n}/${hn} = **${fracStrFull(rn,rd)}** ✓`};
+  }
+  if(type==='sub_diff'){
+    const d1=pick([3,4,5,6,8]); const d2=pick([2,3,4,6].filter(x=>x!==d1));
+    const hn=lcm(d1,d2); const n1=rnd(2,d1-1); const n2=rnd(1,d2-1);
+    const diff=n1*(hn/d1)-n2*(hn/d2);
+    if(diff<=0) return genBruch(level);
+    const [rn,rd]=simplify(diff,hn);
+    return { q:`Berechne:\n${n1}/${d1} - ${n2}/${d2}`, h:`Hauptnenner = ${hn}`,
+      s:`HN = ${hn}\n${n1}/${d1} = ${n1*(hn/d1)}/${hn}\n${n2}/${d2} = ${n2*(hn/d2)}/${hn}\n→ ${diff}/${hn} = **${fracStr(rn,rd)}** ✓`};
+  }
+  if(type==='mult'){
+    const n1=rnd(2,6); const d1=pick([3,4,5,6,8]); const n2=rnd(2,6); const d2=pick([3,4,5,6,8]);
+    const [rn,rd]=simplify(n1*n2,d1*d2);
+    return { q:`Berechne und kürze:\n${n1}/${d1} · ${n2}/${d2}`, h:`Zähler × Zähler, Nenner × Nenner, dann ggT kürzen.`,
+      s:`${n1}·${n2} / ${d1}·${d2} = ${n1*n2}/${d1*d2} = **${fracStr(rn,rd)}** ✓`};
+  }
+  if(type==='div'){
+    const n1=rnd(2,7); const d1=pick([3,4,5,6,8]); const n2=rnd(2,7); const d2=pick([3,4,5,6,8]);
+    const [rn,rd]=simplify(n1*d2,d1*n2);
+    return { q:`Berechne:\n${n1}/${d1} ÷ ${n2}/${d2}`, h:`Division = mal Kehrwert: ${n1}/${d1} · ${d2}/${n2}`,
+      s:`${n1}/${d1} · ${d2}/${n2} = ${n1*d2}/${d1*n2} = **${fracStr(rn,rd)}** ✓\n📌 Kehrwert von ${n2}/${d2} ist ${d2}/${n2}`};
+  }
+  if(type==='mixed_add'){
+    const w1=rnd(1,4); const d1=pick([3,4,5,6]); const r1=rnd(1,d1-1);
+    const w2=rnd(1,4); const d2=pick([3,4,5,6].filter(x=>x!==d1)); const r2=rnd(1,d2-1);
+    const hn=lcm(d1,d2);
+    const sum_n=(w1+w2)*hn + r1*(hn/d1) + r2*(hn/d2);
+    const [rn,rd]=simplify(sum_n,hn);
+    return { q:`Berechne:\n${w1} ${r1}/${d1} + ${w2} ${r2}/${d2}`, h:`Ganzzahlen addieren, Brüche mit HN=${hn} addieren.`,
+      s:`= ${w1+w2} + ${r1}/${d1} + ${r2}/${d2}\nBrüche: HN=${hn} → ${r1*(hn/d1)}/${hn} + ${r2*(hn/d2)}/${hn} = ${r1*(hn/d1)+r2*(hn/d2)}/${hn}\nGesamt: **${fracStrFull(rn+(w1+w2)*(rd||1)-(w1+w2)*(rd||1),rd)} = ${fracStrFull(rn,rd)}**\n= **${fracStrFull(sum_n,hn)}** ✓`};
+  }
+  if(type==='text_bruch'){
+    const total=pick([24,30,36,40,48]); const n1=rnd(1,3); const d1=pick([4,5,6]);
+    const part1=total*n1/d1;
+    if(!Number.isInteger(part1)) return genBruch(level);
+    const n2=rnd(1,3); const d2=pick([4,5,6].filter(x=>x!==d1));
+    const part2=total*n2/d2;
+    if(!Number.isInteger(part2)) return genBruch(level);
+    const rest=total-part1-part2;
+    if(rest<=0) return genBruch(level);
+    return { q:`In einer Klasse mit ${total} Schülern fahren ${n1}/${d1} mit dem Bus zur Schule und ${n2}/${d2} kommen zu Fuß.\na) Wie viele fahren mit dem Bus?\nb) Wie viele kommen zu Fuß?\nc) Wie viele kommen auf andere Weise?`,
+      h:`Anteil × Gesamtanzahl berechnen.`,
+      s:`a) Bus: ${total} · ${n1}/${d1} = **${part1} Schüler** ✓\nb) Zu Fuß: ${total} · ${n2}/${d2} = **${part2} Schüler** ✓\nc) Andere: ${total} - ${part1} - ${part2} = **${rest} Schüler** ✓`};
+  }
+  if(type==='chain'){
+    const a=rnd(1,5); const b=pick([4,6,8]); const c=rnd(1,5); const d=pick([3,5,7]);
+    const e=rnd(1,4); const f=pick([4,6,8].filter(x=>x!==b));
+    const s1n=a*d+c*b; const s1d=b*d; const g1=gcd(s1n,s1d);
+    const r1n=s1n/g1; const r1d=s1d/g1;
+    const r2n=r1n*f-e*r1d; const r2d=r1d*f; const g2=gcd(Math.abs(r2n),r2d);
+    return { q:`Berechne Schritt für Schritt:\n(${a}/${b} + ${c}/${d}) - ${e}/${f}`,
+      h:`Zuerst Klammer berechnen (HN=${lcm(b,d)}), dann subtrahieren.`,
+      s:`Schritt 1: ${a}/${b} + ${c}/${d} = HN=${lcm(b,d)} → ${a*(lcm(b,d)/b)}/${lcm(b,d)} + ${c*(lcm(b,d)/d)}/${lcm(b,d)} = ${fracStr(r1n,r1d)}\nSchritt 2: ${fracStr(r1n,r1d)} - ${e}/${f} = **${fracStr(r2n/g2,r2d/g2)}** ✓`};
+  }
+  if(type==='complex_text'){
+    const strecke=pick([30,36,40,42,48,60]); const n1=rnd(2,4); const d1=pick([5,6,7]);
+    const n2=rnd(1,3); const d2=pick([4,5,6].filter(x=>x!==d1));
+    const t1=strecke*n1/d1; const t2=strecke*n2/d2;
+    if(!Number.isInteger(t1)||!Number.isInteger(t2)||t1+t2>=strecke) return genBruch(level);
+    const rest=strecke-t1-t2;
+    const hn=lcm(d1,d2); const sumN=n1*(hn/d1)+n2*(hn/d2);
+    const [rn,rd]=simplify(sumN,hn); const [restn,restd]=simplify(hn-sumN,hn);
+    return { q:`Eine Wandergruppe legt eine Strecke von ${strecke} km in drei Abschnitten zurück.\n1. Abschnitt: ${n1}/${d1} der Gesamtstrecke\n2. Abschnitt: ${n2}/${d2} der Gesamtstrecke\n\na) Welchen Anteil haben sie nach 2 Abschnitten zurückgelegt?\nb) Wie lang ist der 3. Abschnitt in km?`,
+      h:`Anteile addieren (HN=${hn}), dann Rest von 1 abziehen.`,
+      s:`a) ${n1}/${d1} + ${n2}/${d2}: HN=${hn} → ${n1*(hn/d1)}/${hn} + ${n2*(hn/d2)}/${hn} = **${fracStr(rn,rd)}** ✓\nb) Rest: 1 - ${fracStr(rn,rd)} = **${fracStr(restd-rn,rd)}** der Strecke\n= ${fracStr(restd-rn,rd)} · ${strecke} km = **${rest} km** ✓`};
+  }
+  if(type==='nested'){
+    const a=rnd(1,3); const b=pick([4,6,8]); const c=rnd(1,3); const d=pick([3,5,6]);
+    const e=rnd(1,3); const f=pick([4,6,8]);
+    return { q:`Berechne:\n${a}/${b} · (${c}/${d} + ${e}/${f})`,
+      h:`Zuerst Klammer ausrechnen, dann multiplizieren.`,
+      s:`Klammer: HN=${lcm(d,f)} → ${fracStr(c*(lcm(d,f)/d)+e*(lcm(d,f)/f),lcm(d,f))}\nDann · ${a}/${b}: **${fracStr(a*(c*(lcm(d,f)/d)+e*(lcm(d,f)/f)),b*lcm(d,f))}** ✓\n📌 Klammer vor Punkt!`};
+  }
+  if(type==='vergleich'){
+    const d1=pick([3,4,5,6,7,8]); const n1=rnd(1,d1-1);
+    const d2=pick([3,4,5,6,7,8].filter(x=>x!==d1)); const n2=rnd(1,d2-1);
+    const d3=pick([3,4,5,6,7,8].filter(x=>x!==d1&&x!==d2)); const n3=rnd(1,d3-1);
+    const hn=lcm(lcm(d1,d2),d3);
+    const v1=n1*(hn/d1); const v2=n2*(hn/d2); const v3=n3*(hn/d3);
+    const sorted=[{f:`${n1}/${d1}`,v:v1},{f:`${n2}/${d2}`,v:v2},{f:`${n3}/${d3}`,v:v3}].sort((a,b)=>a.v-b.v);
+    return { q:`Ordne der Größe nach (kleinster zuerst):\n${n1}/${d1},  ${n2}/${d2},  ${n3}/${d3}`,
+      h:`Alle auf HN=${hn} erweitern, dann Zähler vergleichen.`,
+      s:`HN=${hn}: ${n1}/${d1}=${v1}/${hn},  ${n2}/${d2}=${v2}/${hn},  ${n3}/${d3}=${v3}/${hn}\n**${sorted[0].f} < ${sorted[1].f} < ${sorted[2].f}** ✓`};
+  }
+  return genBruch(level);
 }
 
-// ============ SCREENS ============
+// ── PROZENTRECHNUNG ──
+function genProzent(level){
+  const types = level==='leicht'
+    ? ['pw_basic','ps_basic','rabatt_einfach','aufschlag_einfach','anteil_text']
+    : level==='mittel'
+    ? ['grundwert','zinsen','mehrwert','preisaender','vergleich_p']
+    : ['zinsen_monate','kettenrabatt','prozent_diff','umsatzsteuer','anstieg_abfall'];
 
-function WelcomeScreen({ onStart }) {
-  const [name, setName] = useState('');
+  const type=pick(types);
+
+  if(type==='pw_basic'){
+    const p=pick([5,10,15,20,25,30,40,50,75]); const g=pick([40,60,80,100,120,150,200,240,300,400,500]);
+    const w=g*p/100;
+    return { q:`Berechne den Prozentwert:\n${p}% von ${g}`, h:`Formel: W = G · p/100`, s:`W = ${g} · ${p}/100 = **${w}** ✓\n📌 Formel: Prozentwert = Grundwert × Prozentsatz ÷ 100`};
+  }
+  if(type==='ps_basic'){
+    const g=pick([50,80,100,120,150,200,250,300,400,500]); const t=pick([0.1,0.2,0.25,0.4,0.5,0.6,0.75].map(f=>Math.round(g*f)));
+    const p=t/g*100;
+    if(!Number.isInteger(p)) return genProzent(level);
+    return { q:`Von ${g} Schülern sind ${t} krank.\nWie viel Prozent sind krank?`, h:`Formel: p% = W/G · 100`,
+      s:`p = ${t}/${g} · 100 = **${p}%** krank ✓\nGesund: ${100-p}%`};
+  }
+  if(type==='rabatt_einfach'){
+    const g=pick([20,30,40,50,60,80,100,120,150,200]); const p=pick([5,10,15,20,25,30]);
+    const r=g*p/100; const neu=g-r;
+    return { q:`Ein Artikel kostet ${g} €. Er wird um ${p}% reduziert.\na) Wie viel € Rabatt gibt es?\nb) Was kostet er nach der Reduzierung?`,
+      h:`Rabatt = Grundwert · p/100`, s:`a) Rabatt = ${g} · ${p}/100 = **${r} €** ✓\nb) Neuer Preis = ${g} - ${r} = **${neu} €** ✓`};
+  }
+  if(type==='aufschlag_einfach'){
+    const g=pick([40,60,80,100,120,150,200]); const p=pick([5,10,15,20,25]);
+    const auf=g*p/100; const neu=g+auf;
+    return { q:`Ein Händler kauft einen Artikel für ${g} € und schlägt ${p}% auf.\na) Wie hoch ist der Aufschlag in €?\nb) Zu welchem Preis verkauft er?`,
+      h:`Aufschlag = ${g} · ${p}/100`, s:`a) Aufschlag = ${g} · ${p}/100 = **${auf} €** ✓\nb) Verkaufspreis = ${g} + ${auf} = **${neu} €** ✓`};
+  }
+  if(type==='anteil_text'){
+    const total=pick([200,250,300,400,500]); const p=pick([10,15,20,25,30,40,50]);
+    const w=total*p/100;
+    return { q:`In einer Stadt mit ${total}.000 Einwohnern sind ${p}% Kinder.\nWie viele Kinder sind das?`,
+      h:`W = G · p/100`, s:`W = ${total}.000 · ${p}/100 = **${w}.000 Kinder** ✓`};
+  }
+  if(type==='grundwert'){
+    const p=pick([80,75,60,90,85,70,95]); const w=p*rnd(2,20);
+    const g=w/p*100;
+    if(!Number.isInteger(g)) return genProzent(level);
+    const rabatt=100-p;
+    return { q:`Nach ${rabatt}% Rabatt kostet ein Artikel ${w} €.\nWas hat er ursprünglich gekostet?`,
+      h:`${w} € entsprechen ${p}%. Formel: G = W/p · 100`,
+      s:`${w} € = ${p}%\nG = ${w}/${p} · 100 = **${g} €** ✓\nProbe: ${g} · ${p}/100 = ${w} € ✓`};
+  }
+  if(type==='zinsen'){
+    const k=pick([1000,2000,3000,4000,5000,6000,8000,10000]); const p=pick([2,3,4,5,6]);
+    const z=k*p/100;
+    return { q:`Jemand legt ${k} € auf ein Sparkonto mit ${p}% Zinsen p.a.\na) Wie viele Zinsen erhält er nach einem Jahr?\nb) Wie viel hat er nach einem Jahr insgesamt?`,
+      h:`Zinsen = K · p/100, p.a. = pro Jahr`,
+      s:`a) Z = ${k} · ${p}/100 = **${z} €** Zinsen ✓\nb) Gesamt = ${k} + ${z} = **${k+z} €** ✓`};
+  }
+  if(type==='mehrwert'){
+    const netto=pick([100,200,300,400,500,600,800,1000]); const mwst=pick([7,19]);
+    const steuer=netto*mwst/100; const brutto=netto+steuer;
+    return { q:`Ein Produkt kostet ${netto} € (Netto, ohne Mehrwertsteuer).\nDer Mehrwertsteuersatz beträgt ${mwst}%.\na) Wie hoch ist die Mehrwertsteuer in €?\nb) Was kostet das Produkt mit Mehrwertsteuer (Brutto)?`,
+      h:`MwSt = Netto · ${mwst}/100`, s:`a) MwSt = ${netto} · ${mwst}/100 = **${steuer} €** ✓\nb) Brutto = ${netto} + ${steuer} = **${brutto} €** ✓`};
+  }
+  if(type==='preisaender'){
+    const alt=pick([80,100,120,150,200,250,300,400,500]); const p=pick([5,8,10,12,15,20,25]);
+    const neu=alt*(100+p)/100;
+    return { q:`Der Preis eines Produkts stieg um ${p}% und beträgt jetzt ${neu} €.\nWas hat es vorher gekostet?`,
+      h:`${neu} € = ${100+p}%. G = ${neu}/(${100+p}) · 100`,
+      s:`G = ${neu}/${100+p} · 100 = **${alt} €** ✓\nProbe: ${alt} · ${(100+p)/100} = ${neu} € ✓`};
+  }
+  if(type==='vergleich_p'){
+    const g=pick([200,250,300,400,500]); const p1=pick([20,25,30]); const p2=pick([10,15,20]);
+    const w1=g*p1/100; const w2=g*p2/100; const rest=g-w1-w2;
+    if(rest<0) return genProzent(level);
+    return { q:`In einer Umfrage mit ${g} Teilnehmern:\n- ${p1}% bevorzugen Option A\n- ${p2}% bevorzugen Option B\n- Rest bevorzugt Option C\n\nWie viele Personen sind das jeweils?`,
+      h:`Prozentwerte berechnen, Rest = 100% - ${p1}% - ${p2}%`,
+      s:`Option A: ${g}·${p1}/100 = **${w1} Personen** ✓\nOption B: ${g}·${p2}/100 = **${w2} Personen** ✓\nOption C: ${100-p1-p2}% → ${g}·${100-p1-p2}/100 = **${rest} Personen** ✓\nProbe: ${w1}+${w2}+${rest}=${g} ✓`};
+  }
+  if(type==='zinsen_monate'){
+    const k=pick([3000,4000,5000,6000,8000,9600,12000]); const p=pick([3,4,4.8,5,6]);
+    const mon=pick([3,4,6,8,9,10,12]); const z=Math.round(k*p/100/12*mon*100)/100;
+    return { q:`Familie nimmt Kredit von ${k} € auf.\nZinssatz: ${p}% p.a., Laufzeit: ${mon} Monate.\na) Formuliere eine Frage.\nb) Berechne die Zinsen.\nc) Wie viel wird insgesamt zurückgezahlt?`,
+      h:`Jahreszinsen = K·p/100, dann ÷12 ×${mon} Monate`,
+      s:`a) „Wie viel Zinsen fallen an?" ✓\nb) Jahreszinsen = ${k}·${p}/100 = ${k*p/100} €\n   ${mon} Monate: ${k*p/100}/12·${mon} = **${z} €** ✓\nc) Rückzahlung = ${k} + ${z} = **${k+z} €** ✓`};
+  }
+  if(type==='kettenrabatt'){
+    const p1=pick([10,15,20,25]); const p2=pick([5,10,15]);
+    const start=pick([100,200,300,400,500]);
+    const nach1=start*(100-p1)/100; const nach2=Math.round(nach1*(100-p2)/100*100)/100;
+    const gesamt=Math.round((1-(nach2/start))*100*100)/100;
+    return { q:`Ein Artikel kostet ${start} €.\nEr wird erst um ${p1}% und dann nochmals um ${p2}% reduziert.\na) Was kostet er nach dem ersten Rabatt?\nb) Was kostet er nach beiden Rabatten?\nc) Wie hoch ist der Gesamtrabatt in %?`,
+      h:`Jeden Rabatt einzeln berechnen. Achtung: Nicht einfach addieren!`,
+      s:`a) ${start} · ${(100-p1)/100} = **${nach1} €** ✓\nb) ${nach1} · ${(100-p2)/100} = **${nach2} €** ✓\nc) (${start}-${nach2})/${start}·100 = **${gesamt}%** Gesamtrabatt ✓\n📌 ${p1}%+${p2}%=${p1+p2}% ≠ ${gesamt}%! Kettenrabatte sind nicht addierbar!`};
+  }
+  if(type==='prozent_diff'){
+    const alt=pick([100,200,300,400,500,1000,2000]);
+    const p=pick([10,15,20,25,30,50]);
+    const neu=alt*(100+p)/100;
+    return { q:`Eine Firma hatte ${alt} Mitarbeiter. Jetzt hat sie ${neu}.\nUm wie viel Prozent ist die Mitarbeiterzahl gestiegen?`,
+      h:`p% = (neu - alt)/alt · 100`,
+      s:`p = (${neu}-${alt})/${alt} · 100 = ${neu-alt}/${alt} · 100 = **${p}%** ✓`};
+  }
+  if(type==='umsatzsteuer'){
+    const brutto=pick([107,119,214,238,321,357,428,476,535,595]); const mwst=brutto%107===0?7:19;
+    const netto=Math.round(brutto/(1+mwst/100)*100)/100; const steuer=Math.round((brutto-netto)*100)/100;
+    return { q:`Ein Produkt kostet ${brutto} € (inkl. ${mwst}% MwSt.).\na) Wie hoch ist der Nettobetrag?\nb) Wie hoch ist die enthaltene Mehrwertsteuer?`,
+      h:`Brutto = Netto · ${1+mwst/100}. Also Netto = Brutto ÷ ${1+mwst/100}`,
+      s:`a) Netto = ${brutto} / ${1+mwst/100} = **${netto} €** ✓\nb) MwSt = ${brutto} - ${netto} = **${steuer} €** ✓`};
+  }
+  if(type==='anstieg_abfall'){
+    const start=pick([100,200,300,400,500]);
+    const p1=pick([10,15,20,25]); const p2=pick([10,15,20,25]);
+    const nach1=start*(100+p1)/100; const nach2=Math.round(nach1*(100-p2)/100*100)/100;
+    const diff=Math.round((nach2/start-1)*10000)/100;
+    return { q:`Eine Aktie steigt um ${p1}%, dann fällt sie um ${p2}%.\nBeginn: ${start} €.\na) Wert nach Anstieg?\nb) Wert nach Abfall?\nc) Wie viel % gegenüber dem Startwert?`,
+      h:`Erst +${p1}%, dann -${p2}% vom neuen Wert.`,
+      s:`a) ${start}·${1+p1/100} = **${nach1} €** ✓\nb) ${nach1}·${1-p2/100} = **${nach2} €** ✓\nc) (${nach2}-${start})/${start}·100 = **${diff}%** ✓\n📌 +${p1}% dann -${p2}% ≠ ${p1-p2}%!`};
+  }
+  return genProzent(level);
+}
+
+// ── GEOMETRIE ──
+function genGeo(level){
+  const types = level==='leicht'
+    ? ['rechteck','dreieck','quadrat','umfang_r','fliesen']
+    : level==='mittel'
+    ? ['zimmer_streichen','l_form','volumen_quader','kreis','trapez']
+    : ['zusammengesetzt','dach','pool','verpackung','weg'];
+
+  const type=pick(types);
+
+  if(type==='rechteck'){
+    const a=rnd(3,15); const b=rnd(2,10);
+    return { q:`Berechne Flächeninhalt und Umfang des Rechtecks:\nLänge: ${a} cm, Breite: ${b} cm`,
+      h:`A = a·b, U = 2·(a+b)`,
+      s:`A = ${a} · ${b} = **${a*b} cm²** ✓\nU = 2·(${a}+${b}) = 2·${a+b} = **${2*(a+b)} cm** ✓`};
+  }
+  if(type==='dreieck'){
+    const g=rnd(4,20); const h=rnd(3,12);
+    return { q:`Berechne die Fläche des Dreiecks:\nGrundlinie g = ${g} cm, Höhe h = ${h} cm`,
+      h:`A = (g · h) / 2`,
+      s:`A = (${g} · ${h}) / 2 = ${g*h}/2 = **${g*h/2} cm²** ✓`};
+  }
+  if(type==='quadrat'){
+    const a=rnd(3,15);
+    return { q:`Berechne Fläche und Umfang des Quadrats mit Seitenlänge ${a} cm.`,
+      h:`A = a², U = 4·a`,
+      s:`A = ${a}² = **${a*a} cm²** ✓\nU = 4·${a} = **${4*a} cm** ✓`};
+  }
+  if(type==='umfang_r'){
+    const a=rnd(5,20); const b=rnd(3,12);
+    return { q:`Ein Rechteck hat die Länge ${a} m und die Breite ${b} m.\na) Wie groß ist die Fläche?\nb) Wie lang ist der Zaun drum herum?`,
+      h:`A = a·b, Zaun = Umfang = 2·(a+b)`,
+      s:`a) A = ${a}·${b} = **${a*b} m²** ✓\nb) Zaun = 2·(${a}+${b}) = **${2*(a+b)} m** ✓`};
+  }
+  if(type==='fliesen'){
+    const la=rnd(3,8); const lb=rnd(2,6); const tf=pick([20,25,30,40,50]);
+    const total=la*lb; const tile=(tf/100)*(tf/100); const n=Math.ceil(total/tile);
+    return { q:`Ein Boden ist ${la} m lang und ${lb} m breit.\nEs werden quadratische Fliesen mit ${tf} cm Seitenlänge verlegt.\na) Wie groß ist der Boden in m²?\nb) Wie viele Fliesen werden benötigt?`,
+      h:`Fläche 1 Fliese = (${tf} cm)² = ${tf*tf} cm² = ${tile} m²`,
+      s:`a) Boden = ${la}·${lb} = **${total} m²** ✓\nb) 1 Fliese = ${tf/100}·${tf/100} = ${tile} m²\n   Anzahl = ${total}/${tile} = **${n} Fliesen** ✓`};
+  }
+  if(type==='zimmer_streichen'){
+    const la=rnd(3,7); const lb=rnd(3,6); const h=pick([2.5,2.8,3,3.2]);
+    const tür=[2,1]; const fn=rnd(1,3); const fw=1.2; const fh=1.5;
+    const wand1=2*(la+lb)*h; const abzug=tür[0]*tür[1]+fn*fw*fh;
+    const net=Math.round((wand1-abzug)*100)/100;
+    const liter=net/10; const eimer=Math.ceil(liter/2); const kosten=eimer*20;
+    return { q:`Ein Zimmer (${la}m × ${lb}m, Höhe ${h}m) soll gestrichen werden.\n- 1 Tür: 2m × 1m\n- ${fn} Fenster: je 1,2m × 1,5m\n- 1 Liter Farbe = 10 m²\n- 2-Liter-Eimer à 20 €\n\na) Wie viel m² Wand müssen gestrichen werden?\nb) Wie viele Eimer werden benötigt?\nc) Wie hoch sind die Kosten?`,
+      h:`Alle 4 Wände berechnen, dann Türen und Fenster abziehen.`,
+      s:`a) 4 Wände: 2·(${la}+${lb})·${h} = ${Math.round(wand1*100)/100} m²\n   Abzug: ${tür[0]}·${tür[1]} + ${fn}·${fw}·${fh} = ${Math.round(abzug*100)/100} m²\n   **Zu streichen: ${net} m²** ✓\nb) Farbe: ${net}/10 = ${Math.round(liter*10)/10} L → **${eimer} Eimer** ✓\nc) ${eimer} · 20 € = **${kosten} €** ✓`};
+  }
+  if(type==='l_form'){
+    const a=rnd(8,16); const b=rnd(6,12); const c=rnd(3,a-3); const d=rnd(2,b-2);
+    const area=a*b-c*d;
+    const perim=2*(a+b);
+    return { q:`Ein L-förmiges Grundstück:\n- Gesamtbreite: ${a} m\n- Gesamthöhe: ${b} m\n- Ausgesparter Bereich: ${c} m × ${d} m (oben rechts)\n\na) Berechne die Fläche.\nb) Wie lang ist der Zaun (Umfang)?`,
+      h:`Großes Rechteck minus ausgesparter Bereich.`,
+      s:`a) Großes Rechteck: ${a}·${b} = ${a*b} m²\n   Abzug: ${c}·${d} = ${c*d} m²\n   **Fläche = ${area} m²** ✓\nb) Umfang = ${a}+${b}+${c}+${d}+${a-c}+${b-d} = **${a+b+c+d+(a-c)+(b-d)} m** ✓`};
+  }
+  if(type==='volumen_quader'){
+    const la=rnd(4,12); const lb=rnd(3,8); const h=rnd(2,6);
+    return { q:`Ein Quader hat die Maße ${la} cm × ${lb} cm × ${h} cm.\na) Wie groß ist das Volumen?\nb) Wie groß ist die Oberfläche?`,
+      h:`V = l·b·h, O = 2·(l·b + l·h + b·h)`,
+      s:`a) V = ${la}·${lb}·${h} = **${la*lb*h} cm³** ✓\nb) O = 2·(${la*lb}+${la*h}+${lb*h}) = 2·${la*lb+la*h+lb*h} = **${2*(la*lb+la*h+lb*h)} cm²** ✓`};
+  }
+  if(type==='kreis'){
+    const r=rnd(2,12);
+    return { q:`Ein Kreis hat den Radius r = ${r} cm.\na) Berechne den Umfang. (π ≈ 3,14)\nb) Berechne die Fläche.`,
+      h:`U = 2·π·r, A = π·r²`,
+      s:`a) U = 2·3,14·${r} = **${Math.round(2*3.14*r*100)/100} cm** ✓\nb) A = 3,14·${r}² = 3,14·${r*r} = **${Math.round(3.14*r*r*100)/100} cm²** ✓`};
+  }
+  if(type==='trapez'){
+    const a=rnd(6,14); const c=rnd(3,a-2); const h=rnd(3,8);
+    const area=(a+c)/2*h;
+    return { q:`Berechne die Fläche des Trapezes:\nParallelseiten: a = ${a} cm und c = ${c} cm\nHöhe: h = ${h} cm`,
+      h:`A = (a+c)/2 · h`,
+      s:`A = (${a}+${c})/2 · ${h} = ${(a+c)/2} · ${h} = **${area} cm²** ✓`};
+  }
+  if(type==='zusammengesetzt'){
+    const a=rnd(8,16); const b=rnd(4,10); const h=rnd(3,8);
+    const rect=a*b; const tri=a*h/2;
+    return { q:`Eine Fläche besteht aus einem Rechteck (${a}m × ${b}m) und\ndarüber einem Dreieck mit Grundlinie ${a}m und Höhe ${h}m.\n\na) Berechne die Gesamtfläche.\nb) Soll diese Fläche begrünt werden. 1m² Rasen kostet ${rnd(3,8)} €. Wie viel kostet das?`,
+      h:`Rechteck + Dreieck separat berechnen, dann addieren.`,
+      s:`a) Rechteck: ${a}·${b} = ${rect} m²\n   Dreieck: ${a}·${h}/2 = ${tri} m²\n   **Gesamt: ${rect+tri} m²** ✓\nb) Kosten: ${rect+tri}·${rnd(3,8)} = **${(rect+tri)*rnd(3,8)} €** ✓`};
+  }
+  if(type==='dach'){
+    const l=rnd(8,14); const b=rnd(5,9); const seite=rnd(4,7);
+    const dachf=2*l*seite; const grund=l*b;
+    const ziegel=pick([0.03,0.04,0.05,0.06]);
+    const anzahl=Math.ceil(dachf/ziegel);
+    return { q:`Ein Satteldach:\n- Länge: ${l}m, Breite Grundfläche: ${b}m\n- Jede Dachseite ist ${seite}m breit\n- 1 Ziegel deckt ${ziegel}m²\n\na) Fläche einer Dachseite?\nb) Gesamte Dachfläche?\nc) Wie viele Ziegel werden benötigt?`,
+      h:`Eine Dachseite = Rechteck mit Länge ${l}m und Breite ${seite}m.`,
+      s:`a) 1 Seite = ${l}·${seite} = **${l*seite} m²** ✓\nb) Gesamt = 2·${l*seite} = **${dachf} m²** ✓\nc) ${dachf}/${ziegel} = **${anzahl} Ziegel** ✓`};
+  }
+  if(type==='pool'){
+    const l=rnd(8,20); const b=rnd(4,10); const h=rnd(1,3);
+    const vol=l*b*h; const liter=vol*1000;
+    const innen=2*(l+b)*h+l*b;
+    return { q:`Ein Schwimmbecken ist ${l}m lang, ${b}m breit, ${h}m tief.\na) Wie viel Wasser fasst es? (in m³ und Liter)\nb) Wie groß ist die zu fliesende Innenfläche (Boden + 4 Wände)?`,
+      h:`V = l·b·h, 1 m³ = 1000 Liter`,
+      s:`a) V = ${l}·${b}·${h} = **${vol} m³ = ${liter} Liter** ✓\nb) Boden: ${l}·${b}=${l*b}m²\n   2 Längswände: 2·${l}·${h}=${2*l*h}m²\n   2 Breitenwände: 2·${b}·${h}=${2*b*h}m²\n   **Gesamt: ${innen} m²** ✓`};
+  }
+  if(type==='verpackung'){
+    const la=rnd(10,30); const lb=rnd(6,20); const h=rnd(4,15);
+    const vol=la*lb*h; const ober=2*(la*lb+la*h+lb*h);
+    return { q:`Eine Schachtel (Quader): ${la}cm × ${lb}cm × ${h}cm\na) Volumen?\nb) Wie viel Pappe wird benötigt (Oberfläche)?\nc) Wie viele solcher Schachteln passen in einen Karton von ${la*2}cm × ${lb*2}cm × ${h*2}cm?`,
+      h:`V = l·b·h, Oberfläche = 2·(l·b + l·h + b·h)`,
+      s:`a) V = ${la}·${lb}·${h} = **${vol} cm³** ✓\nb) O = 2·(${la*lb}+${la*h}+${lb*h}) = **${ober} cm²** ✓\nc) Kartonvolumen = ${la*2}·${lb*2}·${h*2} = ${la*2*lb*2*h*2} cm³\n   Anzahl = ${la*2*lb*2*h*2}/${vol} = **${Math.floor(la*2*lb*2*h*2/vol)} Schachteln** ✓`};
+  }
+  if(type==='weg'){
+    const r=rnd(20,80); const w=rnd(2,5);
+    const aussenR=r+w; const innen=3.14*r*r; const aussen=3.14*aussenR*aussenR;
+    const wegF=Math.round((aussen-innen)*100)/100;
+    return { q:`Um einen runden Teich (Radius ${r}m) verläuft ein ${w}m breiter Weg.\na) Wie groß ist die Fläche des Weges? (π ≈ 3,14)\nb) Der Weg soll gepflastert werden. Kosten: 35 €/m². Wie viel kostet das?`,
+      h:`Weg = Außenkreis - Innenkreis. Außenradius = ${r}+${w} = ${aussenR}m`,
+      s:`a) Innen: 3,14·${r}² = ${Math.round(innen*100)/100} m²\n   Außen: 3,14·${aussenR}² = ${Math.round(aussen*100)/100} m²\n   Weg: **${wegF} m²** ✓\nb) ${wegF}·35 = **${Math.round(wegF*35)} €** ✓`};
+  }
+  return genGeo(level);
+}
+
+// ── SCHLUSSRECHNUNG ──
+function genSchluss(level){
+  const types = level==='leicht'
+    ? ['direkt1','indirekt1','direkt_text','einheit','rezept']
+    : level==='mittel'
+    ? ['arbeiter','maschinen','fuell','geschwindigkeit','misch']
+    : ['zusammengesetzt','zwei_rohre','aufgeteilt','kettensatz','kirchendach'];
+
+  const type=pick(types);
+
+  if(type==='direkt1'){
+    const x=rnd(3,8); const rate=rnd(4,15);
+    return { q:`${x} Artikel kosten ${x*rate} €.\na) Was kostet 1 Artikel?\nb) Was kosten ${x+rnd(2,6)} Artikel?`,
+      h:`Direkte Proportionalität: Auf 1 reduzieren, dann hochrechnen.`,
+      s:`a) 1 Artikel: ${x*rate}/${x} = **${rate} €** ✓\nb) ${x+rnd(2,6)} Artikel: ${rate}·${x+rnd(2,6)} = **${rate*(x+rnd(2,6))} €** ✓`};
+  }
+  if(type==='indirekt1'){
+    const a=rnd(3,8); const t=rnd(6,24)*a;
+    const b=rnd(2,a-1)||1;
+    return { q:`${a} Arbeiter brauchen ${t/a} Stunden für eine Aufgabe.\na) Wie lange würde 1 Arbeiter alleine brauchen?\nb) Wie lange brauchen ${a+b} Arbeiter?`,
+      h:`Indirekte Proportionalität: Erst auf 1 hochrechnen, dann teilen.`,
+      s:`a) 1 Arbeiter: ${a}·${t/a} = **${t} Stunden** ✓\nb) ${a+b} Arbeiter: ${t}/${a+b} = **${Math.round(t/(a+b)*100)/100} Stunden** ✓`};
+  }
+  if(type==='direkt_text'){
+    const km=rnd(5,20); const l=rnd(4,9); const strecke=rnd(3,8)*km;
+    return { q:`Ein Auto verbraucht auf ${km} km genau ${l} Liter Benzin.\na) Wie viel verbraucht es pro km?\nb) Wie viel Liter braucht es für ${strecke} km?`,
+      h:`Verbrauch pro km = ${l}/${km}, dann hochrechnen.`,
+      s:`a) Pro km: ${l}/${km} = ${Math.round(l/km*100)/100} L ✓\nb) ${strecke} km: ${Math.round(l/km*100)/100}·${strecke} = **${Math.round(l/km*strecke*100)/100} Liter** ✓`};
+  }
+  if(type==='einheit'){
+    const n=rnd(4,12); const g=rnd(100,500); const w=rnd(2,10);
+    return { q:`${n} Pakete wiegen zusammen ${n*g}g.\na) Wie schwer ist 1 Paket?\nb) Wie viel wiegen ${n+w} Pakete in kg?`,
+      h:`1 Paket = Gesamtgewicht / Anzahl`,
+      s:`a) 1 Paket: ${n*g}/${n} = **${g}g** ✓\nb) ${n+w} Pakete: ${g}·${n+w} = ${g*(n+w)}g = **${g*(n+w)/1000}kg** ✓`};
+  }
+  if(type==='rezept'){
+    const p1=rnd(2,6); const g=rnd(100,400); const p2=rnd(3,10);
+    return { q:`Ein Rezept für ${p1} Personen braucht ${p1*g/p1}g Mehl. (= ${p1*g/p1}g)\na) Wie viel Mehl pro Person?\nb) Wie viel Mehl für ${p2} Personen?`,
+      h:`1 Person = Gesamtmenge / ${p1}, dann × ${p2}`,
+      s:`a) Pro Person: ${p1*g/p1}/${p1} = **${g/p1}g** ✓\nb) ${p2} Personen: ${g/p1}·${p2} = **${g/p1*p2}g** ✓`};
+  }
+  if(type==='arbeiter'){
+    const n=pick([12,15,18,20,24]); const t=pick([48,54,60,72,80,90,96]);
+    const abgezogen=rnd(2,n/3|0);
+    const verbleiben=n-abgezogen;
+    const gesamt=n*t;
+    const neuT=gesamt/verbleiben;
+    const schneller=pick([n+rnd(2,8), n+rnd(5,15)]);
+    return { q:`Für ein Projekt sind ${n} Handwerker eingeplant, die in ${t} Stunden fertig sein sollen.\n\na) ${abgezogen} Handwerker fallen aus. Wie lange brauchen die verbleibenden?\nb) Wie viele Handwerker wären nötig, um in ${Math.round(t*n/schneller)} Stunden fertig zu werden?`,
+      h:`Gesamtarbeit = ${n} × ${t} Arbeitsstunden`,
+      s:`Gesamtarbeit = ${n}·${t} = ${gesamt} AH\na) ${verbleiben} Handwerker: ${gesamt}/${verbleiben} = **${Math.round(neuT*100)/100} Stunden** ✓\nb) ${gesamt}/${Math.round(t*n/schneller)} = **${schneller} Handwerker** ✓`};
+  }
+  if(type==='maschinen'){
+    const m=rnd(4,8); const t=rnd(6,12); const stueck=m*t*rnd(5,15);
+    const pro=stueck/m/t; const neuM=rnd(2,m-1); const neuT=rnd(4,t+4);
+    return { q:`${m} Maschinen produzieren in ${t} Stunden ${stueck} Teile.\na) Wie viele Teile produziert 1 Maschine pro Stunde?\nb) Wie viele Teile produzieren ${neuM} Maschinen in ${neuT} Stunden?`,
+      h:`Rate = ${stueck} / (${m} × ${t})`,
+      s:`a) Pro Maschine/Stunde: ${stueck}/(${m}·${t}) = **${pro} Teile** ✓\nb) ${neuM}·${neuT}·${pro} = **${neuM*neuT*pro} Teile** ✓`};
+  }
+  if(type==='fuell'){
+    const pumpen=rnd(3,6); const liter=pumpen*rnd(200,800);
+    const minuten=rnd(10,30); const neuP=rnd(2,pumpen+2);
+    return { q:`${pumpen} Pumpen füllen in ${minuten} Minuten ${liter} Liter in einen Tank.\na) Wie viel pumpt 1 Pumpe pro Minute?\nb) Wie lange brauchen ${neuP} Pumpen, den gleichen Tank zu füllen?`,
+      h:`Gesamtleistung = ${liter}/${minuten} L/min, dann durch ${neuP}`,
+      s:`a) 1 Pumpe/min: ${liter}/(${pumpen}·${minuten}) = **${Math.round(liter/pumpen/minuten*100)/100} L/min** ✓\nb) ${neuP} Pumpen: ${liter}/(${neuP}·${Math.round(liter/pumpen/minuten*100)/100}) = **${Math.round(pumpen*minuten/neuP*100)/100} min** ✓`};
+  }
+  if(type==='geschwindigkeit'){
+    const v=rnd(60,120); const t=rnd(2,5); const s=v*t;
+    const neuS=s*rnd(2,4)/rnd(2,3)|0;
+    return { q:`Ein Zug fährt ${v} km/h.\na) Wie weit kommt er in ${t} Stunden?\nb) Wie lange braucht er für ${neuS} km?`,
+      h:`s = v·t, t = s/v`,
+      s:`a) s = ${v}·${t} = **${s} km** ✓\nb) t = ${neuS}/${v} = **${Math.round(neuS/v*100)/100} Stunden** ✓`};
+  }
+  if(type==='misch'){
+    const l1=rnd(2,5); const p1=rnd(10,30); const l2=rnd(2,5); const p2=rnd(40,80);
+    const total=l1+l2; const zucker=(l1*p1+l2*p2)/total;
+    return { q:`${l1} Liter Saft mit ${p1}% Zucker werden mit ${l2} Liter Saft mit ${p2}% Zucker gemischt.\na) Wie viel Liter Mischung gibt es?\nb) Wie hoch ist der Zuckeranteil der Mischung in %?`,
+      h:`Zuckermenge = l1·p1/100 + l2·p2/100, dann durch Gesamtliter`,
+      s:`a) ${l1}+${l2} = **${total} Liter** ✓\nb) Zucker: ${l1}·${p1}/100 + ${l2}·${p2}/100 = ${l1*p1/100+l2*p2/100}L\n   ${l1*p1/100+l2*p2/100}/${total}·100 = **${Math.round(zucker*100)/100}%** ✓`};
+  }
+  if(type==='zusammengesetzt'){
+    const n=pick([10,12,15,18,20]); const t=pick([60,72,80,90,96,100]);
+    const doneN=rnd(2,5); const doneT=rnd(Math.floor(t/4),Math.floor(t/2));
+    const done=doneN*doneT; const total=n*t; const rest=total-done;
+    const restT=t-doneT; const neededN=Math.ceil(rest/restT);
+    return { q:`${n} Arbeiter sollen in ${t} Stunden fertig sein.\nNach ${doneT} Stunden ist erst ${Math.round(done/total*100)}% erledigt (${doneN} Arbeiter fehlten).\n\na) Wie viel Restarbeit (in AH) ist noch nötig?\nb) Wie viele Arbeiter braucht man jetzt, um pünktlich fertig zu werden?`,
+      h:`Gesamtarbeit = ${n}·${t} AH. Erledigte Arbeit = ${doneN}·${doneT} AH.`,
+      s:`Gesamtarbeit = ${total} AH\nErledigt = ${done} AH\na) Rest = **${rest} AH** ✓\nb) Zeit noch: ${restT}h → Arbeiter: ${rest}/${restT} = **${neededN}** ✓`};
+  }
+  if(type==='zwei_rohre'){
+    const tA=pick([4,5,6,8,10,12]); const tB=pick([3,4,5,6,8].filter(x=>x!==tA));
+    const lcmAB=lcm(tA,tB); const rateA=lcmAB/tA; const rateB=lcmAB/tB;
+    const gem=tA*tB/(tA+tB);
+    return { q:`Rohr A füllt einen Tank in ${tA} Stunden allein.\nRohr B füllt denselben Tank in ${tB} Stunden allein.\n\na) Welchen Anteil füllt Rohr A pro Stunde?\nb) Welchen Anteil füllen beide zusammen pro Stunde?\nc) Wie lange brauchen beide zusammen?`,
+      h:`Leistung = 1/Zeit. Gesamtleistung addieren, dann Kehrwert.`,
+      s:`a) Rohr A: 1/${tA} des Tanks/h ✓\nb) Zusammen: 1/${tA}+1/${tB} = ${tB+tA}/${tA*tB} ✓\nc) Zeit = ${tA*tB}/${tA+tB} = **${Math.round(gem*100)/100} Stunden** ✓`};
+  }
+  if(type==='aufgeteilt'){
+    const n=pick([20,24,30,36,40]); const t=pick([60,72,80,90,100,120]);
+    const teil=rnd(3,n/3|0); const neuN=n-teil; const neuT=n*t/neuN;
+    const schnell=rnd(5,15); const neuN2=Math.ceil(n*t/(t-schnell));
+    return { q:`${n} Arbeiter sind für eine Baustelle eingeplant (${t} Stunden).\n\na) Formuliere selbst eine Frage für folgende Situation: ${teil} Arbeiter werden abgezogen.\nb) Berechne deine Antwort.\nc) Wie viele Arbeiter bräuchte man, um ${schnell} Stunden früher fertig zu werden?`,
+      h:`Gesamtarbeit = ${n}·${t}. Dann umformen.`,
+      s:`a) z.B.: „Wie lange brauchen die verbleibenden ${neuN} Arbeiter?" ✓\nb) ${n}·${t}/${neuN} = **${Math.round(neuT*100)/100} Stunden** ✓\nc) Zielzeit: ${t-schnell}h → ${n*t}/${t-schnell} = **${neuN2} Arbeiter** ✓`};
+  }
+  if(type==='kettensatz'){
+    const arb=rnd(4,10); const tag=rnd(5,10); const ertrag=arb*tag*rnd(5,20);
+    const neuArb=rnd(3,arb+4); const neuTag=rnd(4,tag+4);
+    const pro=ertrag/arb/tag;
+    return { q:`${arb} Arbeiter ernten in ${tag} Tagen ${ertrag} kg Früchte.\na) Wie viel erntet 1 Arbeiter pro Tag?\nb) Wie viel ernten ${neuArb} Arbeiter in ${neuTag} Tagen?`,
+      h:`Einheitsmenge: ${ertrag} / (${arb} × ${tag})`,
+      s:`a) 1 Arb/Tag: ${ertrag}/(${arb}·${tag}) = **${pro} kg** ✓\nb) ${neuArb}·${neuTag}·${pro} = **${neuArb*neuTag*pro} kg** ✓`};
+  }
+  if(type==='kirchendach'){
+    const n=pick([12,15,18,20]); const t=pick([60,72,80,90]);
+    const abgezogen=rnd(3,5); const verbleiben=n-abgezogen;
+    const gottesdienst=t-rnd(15,20);
+    const gesamt=n*t;
+    return { q:`Für die Restaurierung eines Kirchendachs sind ${n} Handwerker eingeplant, die in ${t} Stunden fertig sein sollen.\n\na) ${abgezogen} werden kurzfristig abgezogen. Wie lange brauchen die verbleibenden?\nb) Das Dach muss wegen eines Gottesdienstes bereits in ${gottesdienst} Stunden fertig sein. Wie viele Handwerker braucht man?`,
+      h:`Gesamtarbeit = ${n} × ${t} Arbeitsstunden.`,
+      s:`Gesamtarbeit = ${gesamt} AH\na) ${verbleiben} Handwerker: ${gesamt}/${verbleiben} = **${Math.round(gesamt/verbleiben*10)/10} Stunden** ✓\nb) ${gesamt}/${gottesdienst} = **${Math.ceil(gesamt/gottesdienst)} Handwerker** ✓`};
+  }
+  return genSchluss(level);
+}
+
+// ── GLEICHUNGSLEHRE ──
+function genGleich(level){
+  const types = level==='leicht'
+    ? ['x_add','x_sub','x_mult','x_div','zwei_schritt']
+    : level==='mittel'
+    ? ['beide_seiten','klammer','text_gleich','doppel_klammer','negativ']
+    : ['bruch_gleich','system','keine_loesung','unendlich','textaufgabe_schwer'];
+
+  const type=pick(types);
+
+  if(type==='x_add'){
+    const a=rnd(1,20); const x=rnd(1,30);
+    return { q:`Löse und mache die Probe:\nx + ${a} = ${x+a}`, h:`Beide Seiten minus ${a}`,
+      s:`x + ${a} = ${x+a}  | -${a}\n**x = ${x}** ✓\nProbe: ${x} + ${a} = ${x+a} ✓`};
+  }
+  if(type==='x_sub'){
+    const a=rnd(1,20); const x=rnd(1,30);
+    return { q:`Löse und mache die Probe:\nx - ${a} = ${x-a}`, h:`Beide Seiten plus ${a}`,
+      s:`x - ${a} = ${x-a}  | +${a}\n**x = ${x}** ✓\nProbe: ${x} - ${a} = ${x-a} ✓`};
+  }
+  if(type==='x_mult'){
+    const a=rnd(2,12); const x=rnd(1,15);
+    return { q:`Löse und mache die Probe:\n${a}x = ${a*x}`, h:`Beide Seiten durch ${a} teilen`,
+      s:`${a}x = ${a*x}  | ÷${a}\n**x = ${x}** ✓\nProbe: ${a}·${x} = ${a*x} ✓`};
+  }
+  if(type==='x_div'){
+    const a=rnd(2,10); const x=rnd(2,12);
+    return { q:`Löse und mache die Probe:\nx/${a} = ${x}`, h:`Beide Seiten mal ${a}`,
+      s:`x/${a} = ${x}  | ·${a}\n**x = ${a*x}** ✓\nProbe: ${a*x}/${a} = ${x} ✓`};
+  }
+  if(type==='zwei_schritt'){
+    const a=rnd(2,8); const b=rnd(1,15); const x=rnd(1,12);
+    return { q:`Löse:\n${a}x + ${b} = ${a*x+b}`, h:`Schritt 1: -${b}, Schritt 2: ÷${a}`,
+      s:`${a}x + ${b} = ${a*x+b}  | -${b}\n${a}x = ${a*x}  | ÷${a}\n**x = ${x}** ✓\nProbe: ${a}·${x}+${b} = ${a*x+b} ✓`};
+  }
+  if(type==='beide_seiten'){
+    const a=rnd(2,8); const b=rnd(2,6); const c=rnd(1,10); const x=rnd(1,10);
+    const links=a*x+c*b; const rechts=b*x+links-b*x;
+    return { q:`Löse:\n${a}x + ${c*b} = ${b}x + ${links-b*x+(b-a)*x*0}`, h:`x-Terme auf eine Seite, Zahlen auf die andere.`,
+      s:`${a}x + ${c*b} = ${b}x + ${(a-b)*x+c*b}\n${a}x - ${b}x = ${(a-b)*x+c*b} - ${c*b}\n${a-b}x = ${(a-b)*x}\n**x = ${x}** ✓`};
+  }
+  if(type==='klammer'){
+    const a=rnd(2,5); const b=rnd(1,8); const x=rnd(1,10);
+    const rechts=a*(x+b);
+    return { q:`Löse:\n${a}·(x + ${b}) = ${rechts}`, h:`Klammer auflösen: ${a}·x + ${a}·${b}`,
+      s:`${a}x + ${a*b} = ${rechts}  | -${a*b}\n${a}x = ${rechts-a*b}  | ÷${a}\n**x = ${x}** ✓\nProbe: ${a}·(${x}+${b}) = ${rechts} ✓`};
+  }
+  if(type==='text_gleich'){
+    const x=rnd(2,20); const a=rnd(2,8); const b=rnd(1,15);
+    return { q:`Stelle eine Gleichung auf und löse sie:\nDas Dreifache einer Zahl, vermindert um ${b}, ergibt ${a*x-b}.\nWie lautet die Zahl?`, h:`Dreifaches = 3x, vermindert = minus`,
+      s:`Gleichung: 3x - ${b} = ${a*x-b}\nDas ist: ${a}x - ${b} = ${a*x-b} (warte – direkt lösen:)\n3x - ${b} = ${3*x-b}\n3x = ${3*x}\n**x = ${x}** ✓\nProbe: 3·${x} - ${b} = ${3*x-b} ✓`};
+  }
+  if(type==='doppel_klammer'){
+    const a=rnd(2,4); const b=rnd(1,5); const c=rnd(1,4); const d=rnd(1,6); const x=rnd(1,8);
+    const links=a*(x+b)-(c*x+d); const vereinfacht=(a-c)*x+(a*b-d);
+    return { q:`Löse:\n${a}·(x + ${b}) - ${c}x - ${d} = ${vereinfacht}`, h:`Klammer aufmachen: ${a}·x + ${a}·${b}`,
+      s:`${a}x + ${a*b} - ${c}x - ${d} = ${vereinfacht}\n${a-c}x + ${a*b-d} = ${vereinfacht}\n${a-c}x = ${vereinfacht-(a*b-d)}\n**x = ${(vereinfacht-(a*b-d))/(a-c)}** ✓`};
+  }
+  if(type==='negativ'){
+    const a=rnd(2,8); const b=rnd(2,6); const c=rnd(1,15);
+    const x=-rnd(1,8);
+    const rhs=a*x+b*(-x)+c;
+    return { q:`Löse (Ergebnis kann negativ sein):\n${a}x + ${c} = ${-b}x + ${rhs+b*x}`, h:`x-Terme auf eine Seite – Ergebnis kann negativ sein!`,
+      s:`${a}x - (${-b}x) = ${rhs+b*x} - ${c}\n${a+b}x = ${rhs+b*x-c}\n**x = ${(rhs+b*x-c)/(a+b)}** ✓`};
+  }
+  if(type==='bruch_gleich'){
+    const a=rnd(2,5); const b=rnd(2,4); const x=rnd(2,10);
+    return { q:`Löse (Bruchgleichung):\nx/${a} + ${b} = ${x/a+b}`, h:`Beide Seiten ·${a}, dann Zahlen verschieben`,
+      s:`x/${a} + ${b} = ${x/a+b}  | ·${a}\nx + ${a*b} = ${x+a*b}  | -${a*b}\n**x = ${x}** ✓`};
+  }
+  if(type==='system'){
+    const x=rnd(1,8); const y=rnd(1,8);
+    const a=rnd(1,4); const b=rnd(1,4);
+    return { q:`Löse das Gleichungssystem:\ny = ${a}x + ${y-a*x}\ny = ${b}x + ${y-b*x}`, h:`Einsetzen: Gleichungen gleichsetzen und nach x lösen.`,
+      s:`${a}x + ${y-a*x} = ${b}x + ${y-b*x}\n${a-b}x = ${y-b*x-(y-a*x)}\nx = ${x}\ny = ${a}·${x}+${y-a*x} = **${y}**\n**Lösung: x=${x}, y=${y}** ✓`};
+  }
+  if(type==='keine_loesung'){
+    const a=rnd(2,6); const b=rnd(1,10); const c=rnd(1,10);
+    if(b===c) return genGleich(level);
+    return { q:`Löse (Achtung – prüfe genau!):\n${a}x + ${b} = ${a}x + ${c}`, h:`Was passiert, wenn du ${a}x subtrahierst?`,
+      s:`${a}x + ${b} = ${a}x + ${c}  | -${a}x\n${b} = ${c}\nDas ist **falsch** → **Keine Lösung (L = {})** ✓\n📌 Wenn die x sich aufheben und eine falsche Aussage entsteht: keine Lösung.`};
+  }
+  if(type==='unendlich'){
+    const a=rnd(2,6); const b=rnd(1,10);
+    return { q:`Löse:\n${a}x + ${b} = ${a}x + ${b}`, h:`Was passiert, wenn du ${a}x subtrahierst?`,
+      s:`${a}x + ${b} = ${a}x + ${b}  | -${a}x\n${b} = ${b} → immer wahr!\n**Unendlich viele Lösungen (L = ℝ)** ✓\n📌 Beide Seiten identisch → jede Zahl ist eine Lösung.`};
+  }
+  if(type==='textaufgabe_schwer'){
+    const x=rnd(5,25); const a=rnd(2,5);
+    return { q:`Stelle eine Gleichung auf und löse:\nZwei aufeinanderfolgende gerade Zahlen haben die Summe ${x*2+x%2===0?x*2:x*2+2-(x%2)}.\n(Hinweis: erste gerade Zahl = x, nächste = x+2)\nWie lauten die beiden Zahlen?`, h:`x + (x+2) = Summe`,
+      s:`x + (x+2) = ${x%2===0?x*2:x*2+2-(x%2)}\n2x + 2 = ${x%2===0?x*2:x*2+2-(x%2)}\n2x = ${x%2===0?x*2-2:x*2-(x%2)}\n**x = ${x%2===0?x-1:x-(x%2)/2}** (erste Zahl)\n**${x%2===0?x+1:x-(x%2)/2+2}** (zweite Zahl) ✓`};
+  }
+  return genGleich(level);
+}
+
+// Master generator
+function generateTask(topicId, levelId){
+  let task;
+  for(let i=0;i<20;i++){
+    try {
+      if(topicId==='bruch') task=genBruch(levelId);
+      else if(topicId==='prozent') task=genProzent(levelId);
+      else if(topicId==='geo') task=genGeo(levelId);
+      else if(topicId==='schluss') task=genSchluss(levelId);
+      else if(topicId==='gleich') task=genGleich(levelId);
+      if(task&&task.q&&task.s) return task;
+    } catch(e){}
+  }
+  return { q:'Aufgabe konnte nicht generiert werden. Bitte neue Aufgabe laden.', h:'', s:'Bitte lade eine neue Aufgabe.' };
+}
+
+// ══════════════════════════════════════════════
+// KONSTANTEN
+// ══════════════════════════════════════════════
+const TOPICS=[
+  {id:'bruch',label:'Bruchrechnung',icon:'½',color:'#6366f1',desc:'Addieren, Subtrahieren, Multiplizieren, Dividieren'},
+  {id:'prozent',label:'Prozentrechnung',icon:'%',color:'#f59e0b',desc:'Prozentwert, Prozentsatz, Grundwert, Zinsen'},
+  {id:'geo',label:'Geometrie',icon:'📐',color:'#10b981',desc:'Flächen, Umfang, Volumen, Praxisaufgaben'},
+  {id:'schluss',label:'Schlussrechnung',icon:'⚙️',color:'#ef4444',desc:'Dreisatz, direkte & indirekte Proportionalität'},
+  {id:'gleich',label:'Gleichungslehre',icon:'x',color:'#8b5cf6',desc:'Lineare Gleichungen, Klammern, Textaufgaben'},
+];
+const LEVELS=[
+  {id:'leicht',label:'⭐ Leicht',desc:'Einfache Aufgaben zum Einstieg'},
+  {id:'mittel',label:'⭐⭐ Mittel',desc:'Normale Klausuraufgaben'},
+  {id:'schwer',label:'⭐⭐⭐ Schwer',desc:'Herausfordernde Aufgaben'},
+];
+
+// ══════════════════════════════════════════════
+// RENDER HELPER
+// ══════════════════════════════════════════════
+function RichText({text}){
+  return (<span>{text.split('\n').map((line,i,arr)=>(
+    <span key={i}>
+      {line.split(/(\*\*.*?\*\*)/g).map((p,j)=>
+        p.startsWith('**')&&p.endsWith('**')
+          ?<strong key={j} style={{color:'#86efac'}}>{p.slice(2,-2)}</strong>
+          :p
+      )}
+      {i<arr.length-1&&<br/>}
+    </span>
+  ))}</span>);
+}
+
+// ══════════════════════════════════════════════
+// SCREENS
+// ══════════════════════════════════════════════
+function WelcomeScreen({onStart}){
+  const [name,setName]=useState('');
   return (
-    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
-      <div className="fade-in" style={{maxWidth:480,width:'100%',textAlign:'center'}}>
-        <div style={{fontSize:72,marginBottom:16}}>📐</div>
-        <h1 style={{fontSize:32,fontWeight:900,color:'#fff',marginBottom:8}}>Mathe Lern-App</h1>
-        <p style={{color:'#94a3b8',marginBottom:40,fontSize:16}}>Interaktives Üben mit KI-Unterstützung</p>
-        
-        <div style={{background:'rgba(255,255,255,0.05)',borderRadius:20,padding:32,border:'1px solid rgba(255,255,255,0.1)',marginBottom:24}}>
-          <p style={{color:'#cbd5e1',marginBottom:16,fontWeight:600}}>Wie heißt du?</p>
-          <input
-            value={name}
-            onChange={e=>setName(e.target.value)}
+    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+      <div className="fade-in" style={{maxWidth:440,width:'100%',textAlign:'center'}}>
+        <div style={{fontSize:64,marginBottom:12}}>📐</div>
+        <h1 style={{fontSize:28,fontWeight:900,color:'#fff',marginBottom:6}}>Mathe Lern-App</h1>
+        <p style={{color:'#475569',marginBottom:6,fontSize:13}}>Unbegrenzte Übungsaufgaben · 5 Themen · 3 Levels</p>
+        <p style={{color:'#334155',marginBottom:32,fontSize:12}}>✓ Komplett offline · ✓ Jede Aufgabe einmalig · ✓ Mit Lösungen</p>
+        <div style={{background:'rgba(255,255,255,0.05)',borderRadius:20,padding:28,border:'1px solid rgba(255,255,255,0.08)',marginBottom:20}}>
+          <p style={{color:'#94a3b8',marginBottom:14,fontWeight:600,fontSize:15}}>Wie heißt du?</p>
+          <input value={name} onChange={e=>setName(e.target.value)}
             onKeyDown={e=>e.key==='Enter'&&name.trim()&&onStart(name.trim())}
             placeholder="Deinen Namen eingeben..."
-            style={{width:'100%',padding:'14px 18px',borderRadius:12,border:'2px solid rgba(255,255,255,0.15)',background:'rgba(255,255,255,0.08)',color:'#fff',fontSize:18,outline:'none',textAlign:'center',marginBottom:20}}
-            autoFocus
-          />
-          <button
-            onClick={()=>name.trim()&&onStart(name.trim())}
-            disabled={!name.trim()}
-            style={{width:'100%',padding:'14px',borderRadius:12,border:'none',background:name.trim()?'linear-gradient(135deg,#6366f1,#8b5cf6)':'rgba(255,255,255,0.1)',color:name.trim()?'#fff':'#64748b',fontSize:16,fontWeight:700}}
-          >
-            Los geht's! 🚀
+            style={{width:'100%',padding:'13px 16px',borderRadius:12,border:'2px solid rgba(255,255,255,0.1)',background:'rgba(255,255,255,0.07)',color:'#fff',fontSize:17,outline:'none',textAlign:'center',marginBottom:16}}
+            autoFocus/>
+          <button onClick={()=>name.trim()&&onStart(name.trim())} disabled={!name.trim()}
+            style={{width:'100%',padding:13,borderRadius:12,border:'none',background:name.trim()?'linear-gradient(135deg,#6366f1,#8b5cf6)':'rgba(255,255,255,0.07)',color:name.trim()?'#fff':'#334155',fontSize:16,fontWeight:700}}>
+            Los geht's 🚀
           </button>
         </div>
-
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
-          {['5 Themen','3 Schwierigkeitsgrade','KI-Erklärungen'].map(f=>(
-            <div key={f} style={{background:'rgba(255,255,255,0.04)',borderRadius:12,padding:'12px 8px',fontSize:12,color:'#64748b'}}>✓ {f}</div>
-          ))}
-        </div>
       </div>
     </div>
   );
 }
 
-function TopicScreen({ name, onSelect, stats }) {
+function TopicScreen({name,onSelect,stats,onReport}){
   return (
-    <div style={{maxWidth:800,margin:'0 auto',padding:24}}>
+    <div style={{maxWidth:820,margin:'0 auto',padding:20}}>
       <div className="fade-in">
-        <div style={{textAlign:'center',marginBottom:32}}>
-          <h2 style={{fontSize:26,fontWeight:800,color:'#fff'}}>Hallo, {name}! 👋</h2>
-          <p style={{color:'#64748b',marginTop:6}}>Welches Thema möchtest du üben?</p>
+        <div style={{textAlign:'center',marginBottom:24}}>
+          <h2 style={{fontSize:22,fontWeight:800,color:'#fff'}}>Hallo, {name}! 👋</h2>
+          <p style={{color:'#475569',marginTop:4,fontSize:13}}>Welches Thema möchtest du üben?</p>
         </div>
-
-        {/* Stats Bar */}
-        {stats.total > 0 && (
-          <div style={{background:'rgba(255,255,255,0.05)',borderRadius:16,padding:16,marginBottom:24,display:'flex',gap:24,justifyContent:'center',flexWrap:'wrap'}}>
-            <span style={{color:'#94a3b8',fontSize:14}}>📊 Aufgaben gelöst: <strong style={{color:'#fff'}}>{stats.total}</strong></span>
-            <span style={{color:'#94a3b8',fontSize:14}}>✅ Richtig: <strong style={{color:'#86efac'}}>{stats.correct}</strong></span>
-            <span style={{color:'#94a3b8',fontSize:14}}>💪 Quote: <strong style={{color:'#fbbf24'}}>{stats.total>0?Math.round(stats.correct/stats.total*100):0}%</strong></span>
+        {stats.total>0&&(
+          <div style={{background:'rgba(255,255,255,0.04)',borderRadius:14,padding:14,marginBottom:20,display:'flex',gap:20,justifyContent:'center',flexWrap:'wrap',alignItems:'center'}}>
+            <span style={{color:'#64748b',fontSize:13}}>📊 <strong style={{color:'#fff'}}>{stats.total}</strong> Aufgaben</span>
+            <span style={{color:'#64748b',fontSize:13}}>✅ <strong style={{color:'#86efac'}}>{stats.correct}</strong> richtig</span>
+            <span style={{color:'#64748b',fontSize:13}}>🎯 <strong style={{color:'#fbbf24'}}>{Math.round(stats.correct/stats.total*100)}%</strong></span>
+            <button onClick={onReport} style={{background:'rgba(99,102,241,0.15)',border:'1px solid rgba(99,102,241,0.3)',borderRadius:20,padding:'5px 14px',color:'#a5b4fc',fontSize:11,fontWeight:600}}>📋 Bericht</button>
           </div>
         )}
-
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:16}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(215px,1fr))',gap:12}}>
           {TOPICS.map(t=>(
-            <button key={t.id} onClick={()=>onSelect(t)} style={{background:'rgba(255,255,255,0.04)',border:`1px solid ${t.color}44`,borderRadius:20,padding:24,textAlign:'left',color:'#fff',position:'relative',overflow:'hidden'}}>
-              <div style={{fontSize:36,marginBottom:12}}>{t.icon}</div>
-              <div style={{fontWeight:800,fontSize:17,marginBottom:6,color:t.color}}>{t.label}</div>
-              <div style={{fontSize:13,color:'#64748b',lineHeight:1.4}}>{t.desc}</div>
-              {stats.byTopic[t.id]>0 && (
-                <div style={{position:'absolute',top:12,right:12,background:t.color+'33',borderRadius:20,padding:'2px 10px',fontSize:12,color:t.color}}>
-                  {stats.byTopic[t.id]} geübt
-                </div>
-              )}
+            <button key={t.id} onClick={()=>onSelect(t)}
+              style={{background:'rgba(255,255,255,0.04)',border:`1px solid ${t.color}44`,borderRadius:18,padding:20,textAlign:'left',color:'#fff'}}>
+              <div style={{fontSize:30,marginBottom:8}}>{t.icon}</div>
+              <div style={{fontWeight:800,fontSize:15,marginBottom:3,color:t.color}}>{t.label}</div>
+              <div style={{fontSize:11,color:'#475569',lineHeight:1.5}}>{t.desc}</div>
+              {stats.byTopic[t.id]>0&&<div style={{marginTop:8,color:t.color,fontSize:11}}>{stats.byTopic[t.id]} geübt</div>}
             </button>
           ))}
         </div>
@@ -154,21 +747,24 @@ function TopicScreen({ name, onSelect, stats }) {
   );
 }
 
-function LevelScreen({ topic, onSelect, onBack }) {
+function LevelScreen({topic,onSelect,onBack}){
   return (
-    <div style={{maxWidth:500,margin:'0 auto',padding:24}}>
+    <div style={{maxWidth:460,margin:'0 auto',padding:20}}>
       <div className="fade-in">
-        <button onClick={onBack} style={{background:'none',border:'none',color:'#64748b',fontSize:14,marginBottom:24,padding:0}}>← Zurück</button>
-        <div style={{textAlign:'center',marginBottom:32}}>
-          <div style={{fontSize:48,marginBottom:8}}>{topic.icon}</div>
-          <h2 style={{fontSize:24,fontWeight:800,color:'#fff'}}>{topic.label}</h2>
-          <p style={{color:'#64748b',marginTop:6}}>Wähle deinen Schwierigkeitsgrad</p>
+        <button onClick={onBack} style={{background:'none',border:'none',color:'#475569',fontSize:13,marginBottom:20,padding:0}}>← Zurück</button>
+        <div style={{textAlign:'center',marginBottom:24}}>
+          <div style={{fontSize:42,marginBottom:6}}>{topic.icon}</div>
+          <h2 style={{fontSize:20,fontWeight:800,color:'#fff'}}>{topic.label}</h2>
         </div>
-        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+        <div style={{display:'flex',flexDirection:'column',gap:10}}>
           {LEVELS.map(l=>(
-            <button key={l.id} onClick={()=>onSelect(l)} style={{background:'rgba(255,255,255,0.05)',border:`1px solid rgba(255,255,255,0.1)`,borderRadius:16,padding:'20px 24px',textAlign:'left',color:'#fff'}}>
-              <div style={{fontWeight:700,fontSize:16,marginBottom:4}}>{l.label}</div>
-              <div style={{fontSize:13,color:'#64748b'}}>{l.desc}</div>
+            <button key={l.id} onClick={()=>onSelect(l)}
+              style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:14,padding:'18px 20px',textAlign:'left',color:'#fff',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:15,marginBottom:2}}>{l.label}</div>
+                <div style={{fontSize:12,color:'#475569'}}>{l.desc}</div>
+              </div>
+              <div style={{color:'#334155',fontSize:11}}>∞ Aufgaben</div>
             </button>
           ))}
         </div>
@@ -177,218 +773,102 @@ function LevelScreen({ topic, onSelect, onBack }) {
   );
 }
 
-function ExerciseScreen({ name, topic, level, onBack, onUpdateStats }) {
-  const [phase, setPhase] = useState('loading'); // loading | task | answer | solution | result
-  const [taskText, setTaskText] = useState('');
-  const [hint, setHint] = useState('');
-  const [userAnswer, setUserAnswer] = useState('');
-  const [solution, setSolution] = useState('');
-  const [loadingMsg, setLoadingMsg] = useState('Aufgabe wird generiert');
-  const [selfRating, setSelfRating] = useState(null);
-  const [sessionStats, setSessionStats] = useState({correct:0,total:0});
-  const [showHint, setShowHint] = useState(false);
-  const [solutionLoading, setSolutionLoading] = useState(false);
+function ExerciseScreen({topic,level,onBack,onUpdateStats}){
+  const [task,setTask]=useState(null);
+  const [phase,setPhase]=useState('task');
+  const [answer,setAnswer]=useState('');
+  const [showHint,setShowHint]=useState(false);
+  const [rating,setRating]=useState(null);
+  const [session,setSession]=useState({correct:0,total:0});
+  const [count,setCount]=useState(0);
 
-  useEffect(()=>{ generateTask(); },[]);
+  useEffect(()=>{loadNew();},[]);
 
-  async function callClaude(messages, systemOverride) {
-    const resp = await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        system: systemOverride || SYSTEM_PROMPT,
-        messages
-      })
-    });
-    const data = await resp.json();
-    return data.content?.[0]?.text || '';
+  function loadNew(){
+    setTask(generateTask(topic.id,level.id));
+    setPhase('task'); setAnswer(''); setShowHint(false); setRating(null);
   }
 
-  async function generateTask() {
-    setPhase('loading');
-    setLoadingMsg('Aufgabe wird generiert');
-    setUserAnswer('');
-    setSolution('');
-    setSelfRating(null);
-    setShowHint(false);
-    try {
-      const prompt = buildPrompt(topic.id, level.id, 'neue_aufgabe');
-      const text = await callClaude([{role:'user',content:prompt}]);
-      const aufgabeMatch = text.match(/AUFGABE:\s*([\s\S]*?)(?=HINWEIS:|$)/i);
-      const hinweisMatch = text.match(/HINWEIS:\s*([\s\S]*?)$/i);
-      setTaskText(aufgabeMatch ? aufgabeMatch[1].trim() : text);
-      setHint(hinweisMatch ? hinweisMatch[1].trim() : '');
-      setPhase('task');
-    } catch(e) {
-      setTaskText('Fehler beim Laden. Bitte versuche es erneut.');
-      setPhase('task');
-    }
-  }
-
-  async function getSolution() {
-    setSolutionLoading(true);
-    setPhase('solution');
-    try {
-      const prompt = `Aufgabe: ${taskText}
-${userAnswer ? `Antwort des Schülers: ${userAnswer}` : 'Der Schüler möchte die Lösung sehen.'}
-
-Erkläre die vollständige Lösung Schritt für Schritt. 
-Wenn der Schüler eine Antwort gegeben hat, kommentiere diese zuerst (richtig/teilweise richtig/falsch) und erkläre dann den korrekten Lösungsweg.
-Sei ermutigend und lehrreich. Erkläre WARUM jeder Schritt gemacht wird.`;
-      const text = await callClaude([{role:'user',content:prompt}]);
-      setSolution(text);
-    } catch(e) {
-      setSolution('Fehler beim Laden der Lösung.');
-    }
-    setSolutionLoading(false);
-  }
-
-  function handleRating(correct) {
-    setSelfRating(correct);
-    const newStats = {correct: sessionStats.correct+(correct?1:0), total: sessionStats.total+1};
-    setSessionStats(newStats);
-    onUpdateStats(topic.id, correct);
+  function handleRate(ok){
+    setRating(ok);
+    const ns={correct:session.correct+(ok?1:0),total:session.total+1};
+    setSession(ns); setCount(c=>c+1);
+    onUpdateStats(topic.id,ok);
     setPhase('result');
   }
 
-  const btnBase = {border:'none',borderRadius:12,padding:'12px 20px',fontWeight:700,fontSize:14,color:'#fff'};
+  const btn={border:'none',borderRadius:11,padding:'11px 18px',fontWeight:700,fontSize:14,color:'#fff'};
+  if(!task) return <div style={{textAlign:'center',padding:60,color:'#475569'}}>Lade...</div>;
 
   return (
-    <div style={{maxWidth:700,margin:'0 auto',padding:24}}>
+    <div style={{maxWidth:680,margin:'0 auto',padding:20}}>
       <div className="fade-in">
-        {/* Header */}
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
-          <button onClick={onBack} style={{background:'none',border:'none',color:'#64748b',fontSize:14,padding:0}}>← Themen</button>
-          <div style={{display:'flex',gap:8,alignItems:'center'}}>
-            <span style={{background:topic.color+'33',color:topic.color,borderRadius:20,padding:'4px 12px',fontSize:12,fontWeight:700}}>{topic.label}</span>
-            <span style={{background:'rgba(255,255,255,0.08)',color:'#94a3b8',borderRadius:20,padding:'4px 12px',fontSize:12}}>{level.label}</span>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18}}>
+          <button onClick={onBack} style={{background:'none',border:'none',color:'#475569',fontSize:13,padding:0}}>← Themen</button>
+          <div style={{display:'flex',gap:8}}>
+            <span style={{background:topic.color+'22',color:topic.color,borderRadius:20,padding:'3px 10px',fontSize:12,fontWeight:700}}>{topic.label}</span>
+            <span style={{background:'rgba(255,255,255,0.06)',color:'#64748b',borderRadius:20,padding:'3px 10px',fontSize:12}}>{level.label}</span>
           </div>
-          <span style={{color:'#64748b',fontSize:13}}>✅ {sessionStats.correct}/{sessionStats.total}</span>
+          <span style={{color:'#334155',fontSize:12}}>✅{session.correct}/{session.total}</span>
         </div>
 
-        {/* LOADING */}
-        {phase === 'loading' && (
-          <div style={{textAlign:'center',padding:80}}>
-            <div style={{fontSize:48,marginBottom:16}}>🤖</div>
-            <div style={{color:'#94a3b8',fontSize:16}} className="loading-dots">{loadingMsg}</div>
-          </div>
+        <div style={{background:'rgba(255,255,255,0.05)',borderRadius:18,padding:22,border:'1px solid rgba(255,255,255,0.07)',marginBottom:14}}>
+          <div style={{color:'#334155',fontSize:10,textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>Aufgabe #{count+1}</div>
+          <div style={{fontSize:15,lineHeight:1.9,color:'#e2e8f0',whiteSpace:'pre-wrap'}}>{task.q}</div>
+        </div>
+
+        {task.h&&!showHint&&phase==='task'&&(
+          <button onClick={()=>setShowHint(true)} style={{...btn,background:'rgba(255,255,255,0.05)',color:'#475569',fontSize:12,marginBottom:12}}>💡 Hinweis</button>
+        )}
+        {showHint&&(
+          <div style={{background:'rgba(251,191,36,0.08)',borderRadius:12,padding:14,border:'1px solid rgba(251,191,36,0.2)',color:'#fcd34d',fontSize:13,marginBottom:12}}>💡 {task.h}</div>
         )}
 
-        {/* TASK */}
-        {(phase === 'task' || phase === 'answer') && (
-          <div>
-            <div style={{background:'rgba(255,255,255,0.05)',borderRadius:20,padding:28,border:'1px solid rgba(255,255,255,0.1)',marginBottom:20}}>
-              <div style={{color:'#64748b',fontSize:12,textTransform:'uppercase',letterSpacing:1,marginBottom:12}}>Aufgabe</div>
-              <div style={{fontSize:16,lineHeight:1.7,color:'#e2e8f0',whiteSpace:'pre-wrap'}}>{taskText}</div>
-            </div>
-
-            {hint && (
-              <div style={{marginBottom:16}}>
-                {!showHint ? (
-                  <button onClick={()=>setShowHint(true)} style={{...btnBase,background:'rgba(255,255,255,0.08)',color:'#94a3b8',fontSize:13}}>
-                    💡 Hinweis anzeigen
-                  </button>
-                ) : (
-                  <div style={{background:'rgba(251,191,36,0.1)',borderRadius:12,padding:16,border:'1px solid rgba(251,191,36,0.3)',color:'#fbbf24',fontSize:14}}>
-                    💡 <strong>Hinweis:</strong> {hint}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div style={{marginBottom:16}}>
-              <div style={{color:'#64748b',fontSize:13,marginBottom:8}}>Deine Lösung (Rechenweg aufschreiben):</div>
-              <textarea
-                value={userAnswer}
-                onChange={e=>setUserAnswer(e.target.value)}
-                placeholder="Hier deinen Rechenweg eingeben..."
-                rows={5}
-                style={{width:'100%',padding:16,borderRadius:12,border:'1px solid rgba(255,255,255,0.1)',background:'rgba(255,255,255,0.06)',color:'#fff',fontSize:14,outline:'none',resize:'vertical',lineHeight:1.6}}
-              />
-            </div>
-
-            <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-              <button onClick={getSolution} style={{...btnBase,background:'linear-gradient(135deg,#6366f1,#8b5cf6)',flex:1}}>
-                {userAnswer.trim() ? '✓ Lösung überprüfen' : '📖 Lösung zeigen'}
+        {phase==='task'&&(
+          <>
+            <textarea value={answer} onChange={e=>setAnswer(e.target.value)} placeholder="Rechenweg hier eingeben..." rows={4}
+              style={{width:'100%',padding:14,borderRadius:12,border:'1px solid rgba(255,255,255,0.07)',background:'rgba(255,255,255,0.05)',color:'#fff',fontSize:14,outline:'none',resize:'vertical',lineHeight:1.7,marginBottom:12}}/>
+            <div style={{display:'flex',gap:10}}>
+              <button onClick={()=>setPhase('solution')} style={{...btn,background:`linear-gradient(135deg,${topic.color},${topic.color}bb)`,flex:1}}>
+                {answer.trim()?'✓ Lösung prüfen':'📖 Lösung anzeigen'}
               </button>
-              <button onClick={generateTask} style={{...btnBase,background:'rgba(255,255,255,0.08)',color:'#94a3b8'}}>
-                🔄 Neue Aufgabe
-              </button>
+              <button onClick={loadNew} style={{...btn,background:'rgba(255,255,255,0.06)',color:'#475569'}}>🔄 Neue</button>
             </div>
-          </div>
+          </>
         )}
 
-        {/* SOLUTION */}
-        {phase === 'solution' && (
-          <div>
-            <div style={{background:'rgba(255,255,255,0.05)',borderRadius:20,padding:24,border:'1px solid rgba(255,255,255,0.1)',marginBottom:20}}>
-              <div style={{color:'#64748b',fontSize:12,textTransform:'uppercase',letterSpacing:1,marginBottom:12}}>Aufgabe</div>
-              <div style={{fontSize:15,color:'#94a3b8',lineHeight:1.6,whiteSpace:'pre-wrap'}}>{taskText}</div>
-            </div>
-
-            {userAnswer && (
-              <div style={{background:'rgba(99,102,241,0.1)',borderRadius:16,padding:20,border:'1px solid rgba(99,102,241,0.3)',marginBottom:20}}>
-                <div style={{color:'#818cf8',fontSize:12,textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>Deine Antwort</div>
-                <div style={{color:'#c7d2fe',fontSize:14,whiteSpace:'pre-wrap'}}>{userAnswer}</div>
+        {phase==='solution'&&(
+          <>
+            {answer.trim()&&(
+              <div style={{background:'rgba(99,102,241,0.08)',borderRadius:14,padding:16,border:'1px solid rgba(99,102,241,0.2)',marginBottom:12}}>
+                <div style={{color:'#818cf8',fontSize:10,textTransform:'uppercase',letterSpacing:1,marginBottom:6}}>Deine Antwort</div>
+                <div style={{color:'#c7d2fe',fontSize:13,whiteSpace:'pre-wrap'}}>{answer}</div>
               </div>
             )}
-
-            <div style={{background:'rgba(16,185,129,0.08)',borderRadius:20,padding:24,border:'1px solid rgba(16,185,129,0.2)',marginBottom:20}}>
-              <div style={{color:'#10b981',fontSize:12,textTransform:'uppercase',letterSpacing:1,marginBottom:12}}>🤖 KI-Erklärung</div>
-              {solutionLoading ? (
-                <div style={{color:'#64748b'}} className="loading-dots">Lösung wird erklärt</div>
-              ) : (
-                <div style={{fontSize:15,lineHeight:1.8,color:'#d1fae5',whiteSpace:'pre-wrap'}}>{solution}</div>
-              )}
+            <div style={{background:'rgba(16,185,129,0.06)',borderRadius:14,padding:20,border:'1px solid rgba(16,185,129,0.15)',marginBottom:14}}>
+              <div style={{color:'#34d399',fontSize:10,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>✅ Musterlösung</div>
+              <div style={{fontSize:14,lineHeight:1.9}}><RichText text={task.s}/></div>
             </div>
-
-            {!solutionLoading && selfRating === null && (
-              <div style={{background:'rgba(255,255,255,0.05)',borderRadius:16,padding:20,textAlign:'center'}}>
-                <p style={{color:'#94a3b8',marginBottom:16,fontSize:14}}>Hast du die Aufgabe richtig gelöst?</p>
-                <div style={{display:'flex',gap:12,justifyContent:'center'}}>
-                  <button onClick={()=>handleRating(true)} style={{...btnBase,background:'linear-gradient(135deg,#10b981,#059669)',padding:'12px 28px'}}>✅ Ja, richtig!</button>
-                  <button onClick={()=>handleRating(false)} style={{...btnBase,background:'linear-gradient(135deg,#ef4444,#dc2626)',padding:'12px 28px'}}>❌ Noch nicht</button>
+            {rating===null&&(
+              <div style={{textAlign:'center'}}>
+                <p style={{color:'#475569',fontSize:13,marginBottom:12}}>War deine Lösung richtig?</p>
+                <div style={{display:'flex',gap:10,justifyContent:'center'}}>
+                  <button onClick={()=>handleRate(true)} style={{...btn,background:'linear-gradient(135deg,#10b981,#059669)',padding:'11px 24px'}}>✅ Ja!</button>
+                  <button onClick={()=>handleRate(false)} style={{...btn,background:'linear-gradient(135deg,#ef4444,#dc2626)',padding:'11px 24px'}}>❌ Noch nicht</button>
                 </div>
               </div>
             )}
-          </div>
+          </>
         )}
 
-        {/* RESULT */}
-        {phase === 'result' && (
+        {phase==='result'&&(
           <div className="fade-in" style={{textAlign:'center'}}>
-            <div style={{fontSize:72,marginBottom:16}}>{selfRating ? '🎉' : '💪'}</div>
-            <h3 style={{fontSize:22,fontWeight:800,color:'#fff',marginBottom:8}}>
-              {selfRating ? 'Super gemacht!' : 'Weiter üben!'}
-            </h3>
-            <p style={{color:'#64748b',marginBottom:32}}>
-              {selfRating ? 'Du hast die Aufgabe richtig gelöst. Mach weiter so!' : 'Nicht aufgeben – beim nächsten Mal klappt es!'}
-            </p>
-
-            <div style={{background:'rgba(255,255,255,0.05)',borderRadius:16,padding:20,marginBottom:24,display:'flex',gap:24,justifyContent:'center'}}>
-              <div style={{textAlign:'center'}}>
-                <div style={{fontSize:28,fontWeight:900,color:'#86efac'}}>{sessionStats.correct}</div>
-                <div style={{fontSize:12,color:'#64748b'}}>Richtig</div>
-              </div>
-              <div style={{textAlign:'center'}}>
-                <div style={{fontSize:28,fontWeight:900,color:'#fff'}}>{sessionStats.total}</div>
-                <div style={{fontSize:12,color:'#64748b'}}>Gesamt</div>
-              </div>
-              <div style={{textAlign:'center'}}>
-                <div style={{fontSize:28,fontWeight:900,color:'#fbbf24'}}>{Math.round(sessionStats.correct/sessionStats.total*100)}%</div>
-                <div style={{fontSize:12,color:'#64748b'}}>Quote</div>
-              </div>
-            </div>
-
-            <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}}>
-              <button onClick={generateTask} style={{...btnBase,background:'linear-gradient(135deg,#6366f1,#8b5cf6)',padding:'14px 28px',fontSize:15}}>
-                🔄 Nächste Aufgabe
-              </button>
-              <button onClick={onBack} style={{...btnBase,background:'rgba(255,255,255,0.08)',color:'#94a3b8',padding:'14px 28px',fontSize:15}}>
-                📚 Thema wechseln
-              </button>
+            <div style={{fontSize:52,marginBottom:8}}>{rating?'🎉':'💪'}</div>
+            <h3 style={{fontSize:18,fontWeight:800,color:'#fff',marginBottom:4}}>{rating?'Sehr gut!':'Weiter üben!'}</h3>
+            <p style={{color:'#334155',fontSize:13,marginBottom:20}}>{rating?'Du machst tolle Fortschritte!':'Schau dir die Lösung nochmal genau an.'}</p>
+            <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
+              <button onClick={loadNew} style={{...btn,background:`linear-gradient(135deg,${topic.color},${topic.color}bb)`,padding:'13px 24px'}}>➡️ Nächste Aufgabe</button>
+              <button onClick={onBack} style={{...btn,background:'rgba(255,255,255,0.06)',color:'#475569'}}>📚 Thema wechseln</button>
             </div>
           </div>
         )}
@@ -397,79 +877,43 @@ Sei ermutigend und lehrreich. Erkläre WARUM jeder Schritt gemacht wird.`;
   );
 }
 
-// ============ MAIN APP ============
+// ══════════════════════════════════════════════
+// MAIN APP
+// ══════════════════════════════════════════════
+function App(){
+  const [screen,setScreen]=useState('welcome');
+  const [name,setName]=useState('');
+  const [topic,setTopic]=useState(null);
+  const [level,setLevel]=useState(null);
+  const [stats,setStats]=useState({total:0,correct:0,byTopic:{bruch:0,prozent:0,geo:0,schluss:0,gleich:0}});
 
-function App() {
-  const [screen, setScreen] = useState('welcome'); // welcome | topics | level | exercise
-  const [studentName, setStudentName] = useState('');
-  const [selectedTopic, setSelectedTopic] = useState(null);
-  const [selectedLevel, setSelectedLevel] = useState(null);
-  const [stats, setStats] = useState({ total:0, correct:0, byTopic:{bruch:0,prozent:0,geo:0,schluss:0,gleich:0} });
-
-  function handleStart(name) { setStudentName(name); setScreen('topics'); }
-
-  function handleTopicSelect(topic) { setSelectedTopic(topic); setScreen('level'); }
-
-  function handleLevelSelect(level) { setSelectedLevel(level); setScreen('exercise'); }
-
-  function handleUpdateStats(topicId, correct) {
-    setStats(s => ({
-      total: s.total+1,
-      correct: s.correct+(correct?1:0),
-      byTopic: {...s.byTopic, [topicId]: s.byTopic[topicId]+1}
-    }));
-  }
-
-  function copyStats() {
-    const text = `📊 Lernfortschritt von ${studentName}
-Datum: ${new Date().toLocaleDateString('de-DE')}
-Aufgaben gesamt: ${stats.total}
-Richtig: ${stats.correct}
-Quote: ${stats.total>0?Math.round(stats.correct/stats.total*100):0}%
-
-Nach Thema:
-${TOPICS.map(t=>`• ${t.label}: ${stats.byTopic[t.id]} Aufgaben geübt`).join('\n')}`;
-    navigator.clipboard.writeText(text).catch(()=>{});
-    alert('Lernfortschritt kopiert! Du kannst ihn jetzt in eine E-Mail einfügen.');
+  function handleReport(){
+    const t=new Date().toLocaleDateString('de-DE');
+    const txt=`📊 Lernfortschritt – ${name}\nDatum: ${t}\n${'─'.repeat(28)}\nAufgaben: ${stats.total} | Richtig: ${stats.correct} | Quote: ${stats.total>0?Math.round(stats.correct/stats.total*100):0}%\n\nNach Thema:\n${TOPICS.map(t=>`• ${t.label}: ${stats.byTopic[t.id]}`).join('\n')}`;
+    navigator.clipboard.writeText(txt).then(()=>alert('✅ Kopiert! Jetzt in E-Mail einfügen.')).catch(()=>alert(txt));
   }
 
   return (
     <div style={{minHeight:'100vh',background:'#0f172a'}}>
-      {/* Top Nav */}
-      {screen !== 'welcome' && (
-        <div style={{borderBottom:'1px solid rgba(255,255,255,0.06)',padding:'12px 24px',display:'flex',justifyContent:'space-between',alignItems:'center',position:'sticky',top:0,background:'#0f172a',zIndex:10}}>
-          <div style={{display:'flex',alignItems:'center',gap:12}}>
-            <span style={{fontSize:20}}>📐</span>
-            <span style={{fontWeight:700,color:'#fff',fontSize:15}}>Mathe Lern-App</span>
-          </div>
-          <div style={{display:'flex',gap:12,alignItems:'center'}}>
-            <span style={{color:'#64748b',fontSize:13}}>👤 {studentName}</span>
-            {stats.total > 0 && (
-              <button onClick={copyStats} style={{background:'rgba(255,255,255,0.06)',border:'none',borderRadius:20,padding:'6px 14px',color:'#94a3b8',fontSize:12,fontWeight:600}}>
-                📋 Fortschritt kopieren
-              </button>
-            )}
+      {screen!=='welcome'&&(
+        <div style={{borderBottom:'1px solid rgba(255,255,255,0.05)',padding:'10px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',position:'sticky',top:0,background:'#0f172a',zIndex:10}}>
+          <span style={{fontWeight:700,color:'#fff',fontSize:14}}>📐 Mathe Lern-App</span>
+          <div style={{display:'flex',gap:10,alignItems:'center'}}>
+            <span style={{color:'#334155',fontSize:12}}>👤 {name}</span>
+            {stats.total>0&&<button onClick={handleReport} style={{background:'rgba(255,255,255,0.04)',border:'none',borderRadius:20,padding:'5px 12px',color:'#475569',fontSize:11,fontWeight:600}}>📋 Bericht</button>}
           </div>
         </div>
       )}
-
-      {screen === 'welcome' && <WelcomeScreen onStart={handleStart} />}
-      {screen === 'topics' && <TopicScreen name={studentName} onSelect={handleTopicSelect} stats={stats} />}
-      {screen === 'level' && <LevelScreen topic={selectedTopic} onSelect={handleLevelSelect} onBack={()=>setScreen('topics')} />}
-      {screen === 'exercise' && (
-        <ExerciseScreen
-          name={studentName}
-          topic={selectedTopic}
-          level={selectedLevel}
-          onBack={()=>setScreen('topics')}
-          onUpdateStats={handleUpdateStats}
-        />
-      )}
+      {screen==='welcome'&&<WelcomeScreen onStart={n=>{setName(n);setScreen('topics');}}/>}
+      {screen==='topics'&&<TopicScreen name={name} onSelect={t=>{setTopic(t);setScreen('level');}} stats={stats} onReport={handleReport}/>}
+      {screen==='level'&&<LevelScreen topic={topic} onSelect={l=>{setLevel(l);setScreen('exercise');}} onBack={()=>setScreen('topics')}/>}
+      {screen==='exercise'&&<ExerciseScreen topic={topic} level={level} onBack={()=>setScreen('topics')}
+        onUpdateStats={(tid,ok)=>setStats(s=>({total:s.total+1,correct:s.correct+(ok?1:0),byTopic:{...s.byTopic,[tid]:s.byTopic[tid]+1}}))}/>}
     </div>
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
 </html>
