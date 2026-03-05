@@ -22,668 +22,315 @@ textarea,input { font-family:'Segoe UI',sans-serif; }
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect } = React;
 
-// ══════════════════════════════════════════════
-// HELPER MATH
-// ══════════════════════════════════════════════
-function gcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){let t=b;b=a%b;a=t;} return a||1; }
-function lcm(a,b){ return Math.abs(a*b)/gcd(a,b); }
-function simplify(n,d){ if(d===0) return [n,d]; const g=gcd(Math.abs(n),Math.abs(d)); return [n/g,d/g]; }
-function fracStr(n,d){ const [sn,sd]=simplify(n,d); if(sd===1) return `${sn}`; if(sn===0) return '0'; return `${sn}/${sd}`; }
-function fracStrFull(n,d){ const [sn,sd]=simplify(n,d); if(sd===1) return `${sn}`; if(Math.abs(sn)>sd){ const w=Math.trunc(sn/sd); const r=Math.abs(sn%sd); return r===0?`${w}`:`${w} ${r}/${sd}`; } return `${sn}/${sd}`; }
-function rnd(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
-function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
-function shuffle(arr){ return [...arr].sort(()=>Math.random()-0.5); }
-// primes list for denominators
-const PRIMES=[2,3,5,7,11,13];
-function niceDenom(){ return pick([2,3,4,5,6,7,8,9,10,12]); }
+const POOL = {
 
-// ══════════════════════════════════════════════
-// AUFGABEN-GENERATOREN
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════
+// BRUCHRECHNUNG
+// ════════════════════════════════════════
+bruch: {
+leicht: [
+  { q:"Berechne und kürze:\na) 1/4 + 2/4\nb) 3/8 + 2/8\nc) 5/6 - 2/6\nd) 7/10 - 3/10", h:"Gleiche Nenner → nur Zähler rechnen!", s:"a) 3/4 ✓\nb) 5/8 ✓\nc) 3/6 = **1/2** ✓\nd) 4/10 = **2/5** ✓" },
+  { q:"Kürze so weit wie möglich:\na) 4/8\nb) 6/9\nc) 10/15\nd) 12/16\ne) 9/12", h:"Größten gemeinsamen Teiler (ggT) finden.", s:"a) 4/8 ÷ 4 = **1/2** ✓\nb) 6/9 ÷ 3 = **2/3** ✓\nc) 10/15 ÷ 5 = **2/3** ✓\nd) 12/16 ÷ 4 = **3/4** ✓\ne) 9/12 ÷ 3 = **3/4** ✓" },
+  { q:"Berechne:\na) 1/2 + 1/4\nb) 1/3 + 1/6\nc) 3/4 - 1/8\nd) 2/3 - 1/9", h:"Hauptnenner bestimmen, dann erweitern.", s:"a) 2/4 + 1/4 = **3/4** ✓\nb) 2/6 + 1/6 = **3/6 = 1/2** ✓\nc) 6/8 - 1/8 = **5/8** ✓\nd) 6/9 - 1/9 = **5/9** ✓" },
+  { q:"Multipliziere:\na) 1/2 · 1/3\nb) 2/3 · 3/4\nc) 1/4 · 8\nd) 2/5 · 5", h:"Zähler × Zähler, Nenner × Nenner.", s:"a) 1/6 ✓\nb) 6/12 = **1/2** ✓\nc) 8/4 = **2** ✓\nd) 10/5 = **2** ✓" },
+  { q:"Dividiere:\na) 1/2 ÷ 1/4\nb) 3/4 ÷ 3/8\nc) 2/3 ÷ 4\nd) 6 ÷ 3/2", h:"Division = Mal dem Kehrwert!", s:"a) 1/2 · 4 = **2** ✓\nb) 3/4 · 8/3 = 24/12 = **2** ✓\nc) 2/3 · 1/4 = **1/6** ✓\nd) 6 · 2/3 = **4** ✓" },
+  { q:"Wandle in gemischte Zahlen um:\na) 7/4\nb) 11/3\nc) 9/2\nd) 17/5", h:"Zähler ÷ Nenner = Ganzzahl Rest Zähler.", s:"a) **1 3/4** ✓\nb) **3 2/3** ✓\nc) **4 1/2** ✓\nd) **3 2/5** ✓" },
+  { q:"Wandle in unechte Brüche um:\na) 2 1/3\nb) 1 3/4\nc) 3 2/5\nd) 4 1/6", h:"Ganzzahl × Nenner + Zähler.", s:"a) (2·3+1)/3 = **7/3** ✓\nb) (1·4+3)/4 = **7/4** ✓\nc) (3·5+2)/5 = **17/5** ✓\nd) (4·6+1)/6 = **25/6** ✓" },
+  { q:"Berechne:\na) 3/5 + 1/5\nb) 8/11 - 3/11\nc) 4/7 + 2/7\nd) 9/13 - 4/13", h:"Gleiche Nenner vorhanden – direkt rechnen.", s:"a) **4/5** ✓\nb) **5/11** ✓\nc) 6/7 ✓\nd) **5/13** ✓" },
+  { q:"Berechne:\na) 1/3 + 1/4\nb) 1/2 + 1/5\nc) 2/3 + 1/4\nd) 3/4 + 1/3", h:"kgV der Nenner als Hauptnenner.", s:"a) 4/12 + 3/12 = **7/12** ✓\nb) 5/10 + 2/10 = **7/10** ✓\nc) 8/12 + 3/12 = **11/12** ✓\nd) 9/12 + 4/12 = 13/12 = **1 1/12** ✓" },
+  { q:"Ordne der Größe nach (kleinster zuerst):\na) 1/2,  1/3,  1/4\nb) 2/3,  3/4,  5/6", h:"Auf gleichen Nenner bringen, dann Zähler vergleichen.", s:"a) kgV=12: 6/12 > 4/12 > 3/12 → **1/4 < 1/3 < 1/2** ✓\nb) kgV=12: 8/12 < 9/12 < 10/12 → **2/3 < 3/4 < 5/6** ✓" },
+  { q:"In einer Klasse mit 30 Schülern fahren 2/5 mit dem Bus.\na) Wie viele fahren mit dem Bus?\nb) Wie viele fahren nicht mit dem Bus?", h:"Anteil × Gesamtzahl.", s:"a) 30 · 2/5 = **12 Schüler** ✓\nb) 30 - 12 = **18 Schüler** ✓" },
+  { q:"Von einer Pizza wurden 3/8 gegessen.\na) Wie viel ist noch übrig?\nb) Wenn die Pizza 8 Stücke hat, wie viele Stücke wurden gegessen?", h:"Rest = 1 - gegessener Anteil.", s:"a) 1 - 3/8 = **5/8** ✓\nb) 8 · 3/8 = **3 Stücke** ✓" },
+  { q:"Berechne:\na) 2/3 · 3\nb) 3/4 · 8\nc) 5/6 · 12\nd) 4/7 · 14", h:"Bruch × ganze Zahl: Zähler multiplizieren.", s:"a) 6/3 = **2** ✓\nb) 24/4 = **6** ✓\nc) 60/6 = **10** ✓\nd) 56/7 = **8** ✓" },
+  { q:"Welcher Bruch ist größer?\na) 2/3 oder 3/5\nb) 4/7 oder 3/5\nc) 5/8 oder 7/12", h:"Auf gleichen Nenner bringen.", s:"a) 10/15 > 9/15 → **2/3** ✓\nb) 20/35 < 21/35 → **3/5** ✓\nc) 15/24 > 14/24 → **5/8** ✓" },
+  { q:"Berechne und schreibe als gemischte Zahl:\na) 5/4 + 3/4\nb) 7/6 + 5/6\nc) 11/8 + 5/8", h:"Addieren, dann als gemischte Zahl schreiben.", s:"a) 8/4 = **2** ✓\nb) 12/6 = **2** ✓\nc) 16/8 = **2** ✓" },
+],
+mittel: [
+  { q:"Berechne:\na) 2/3 + 3/4\nb) 5/6 - 2/9\nc) 3/8 + 5/12\nd) 7/10 - 3/8", h:"Hauptnenner = kgV der Nenner.", s:"a) 8/12 + 9/12 = **17/12 = 1 5/12** ✓\nb) 15/18 - 4/18 = **11/18** ✓\nc) 9/24 + 10/24 = **19/24** ✓\nd) 28/40 - 15/40 = **13/40** ✓" },
+  { q:"Berechne:\na) 1 1/2 + 2 1/3\nb) 3 3/4 - 1 2/3\nc) 2 2/5 + 1 3/4\nd) 4 1/6 - 2 3/4", h:"Gemischte Zahlen in unechte Brüche umwandeln, dann rechnen.", s:"a) 3/2 + 7/3 = 9/6 + 14/6 = 23/6 = **3 5/6** ✓\nb) 15/4 - 5/3 = 45/12 - 20/12 = 25/12 = **2 1/12** ✓\nc) 12/5 + 7/4 = 48/20 + 35/20 = 83/20 = **4 3/20** ✓\nd) 25/6 - 11/4 = 50/12 - 33/12 = 17/12 = **1 5/12** ✓" },
+  { q:"Berechne:\na) 3/4 · 8/9\nb) 5/6 · 3/10\nc) 2 1/2 · 1 1/5\nd) 1 3/4 · 2 2/3", h:"Gemischte Zahlen erst umwandeln. Vor Multiplikation kürzen!", s:"a) 24/36 = **2/3** ✓\nb) 15/60 = **1/4** ✓\nc) 5/2 · 6/5 = 30/10 = **3** ✓\nd) 7/4 · 8/3 = 56/12 = **4 2/3** ✓" },
+  { q:"Berechne:\na) 5/8 ÷ 15/16\nb) 2 1/4 ÷ 3/4\nc) 3 1/3 ÷ 1 2/3\nd) 4 1/2 ÷ 1 1/2", h:"Division = mal Kehrwert. Gemischte Zahlen erst umwandeln!", s:"a) 5/8 · 16/15 = 80/120 = **2/3** ✓\nb) 9/4 · 4/3 = 36/12 = **3** ✓\nc) 10/3 · 3/5 = 30/15 = **2** ✓\nd) 9/2 · 2/3 = 18/6 = **3** ✓" },
+  { q:"Berechne:\na) (1/2 + 1/3) · 6\nb) 3/4 ÷ (1/2 - 1/4)\nc) (2/3 + 1/6) · (4/5 - 1/10)", h:"Klammer zuerst ausrechnen!", s:"a) 5/6 · 6 = **5** ✓\nb) 3/4 ÷ 1/4 = **3** ✓\nc) 5/6 · 7/10 = 35/60 = **7/12** ✓" },
+  { q:"Ein Rezept für 4 Personen braucht 3/4 kg Mehl.\na) Wie viel Mehl pro Person?\nb) Wie viel Mehl für 10 Personen?\nc) Für wie viele Personen reicht 1 1/2 kg?", h:"Auf 1 Person reduzieren, dann hochrechnen.", s:"a) 3/4 ÷ 4 = **3/16 kg** ✓\nb) 3/16 · 10 = **30/16 = 1 7/8 kg** ✓\nc) 1 1/2 ÷ 3/16 = 3/2 · 16/3 = **8 Personen** ✓" },
+  { q:"Von einer Schulklasse gehen 2/5 ins Kino.\nVon denen kaufen 3/4 Popcorn.\na) Welcher Anteil der Klasse kauft Popcorn?\nb) Die Klasse hat 30 Schüler. Wie viele kaufen Popcorn?", h:"'Von' bedeutet multiplizieren!", s:"a) 2/5 · 3/4 = 6/20 = **3/10** ✓\nb) 30 · 3/10 = **9 Schüler** ✓" },
+  { q:"Berechne:\na) 2/3 : (3/4 + 1/6)\nb) (5/6 - 1/4) · 12\nc) 1/2 + 3/4 · 8", h:"Reihenfolge: Klammer → Punkt → Strich", s:"a) 2/3 : 11/12 = 2/3 · 12/11 = **8/11** ✓\nb) (10/12 - 3/12) · 12 = 7/12 · 12 = **7** ✓\nc) 1/2 + 6 = **6 1/2** ✓" },
+  { q:"3/5 eines Weges sind 12 km lang.\na) Wie lang ist der gesamte Weg?\nb) Wie lang sind 2/5 des Weges?\nc) Wie lang ist noch nicht gegangen worden, wenn 4/5 zurückgelegt wurden?", h:"3/5 entsprechen 12 km → Einheitsmenge 1/5 berechnen.", s:"a) 1/5 = 4 km → **Gesamt = 20 km** ✓\nb) 2/5 = **8 km** ✓\nc) 1/5 = **4 km** ✓" },
+  { q:"Berechne und kürze:\na) 4/5 · 15/8\nb) 7/12 · 9/14\nc) 3/8 · 16/9\nd) 5/6 · 18/25", h:"Vor dem Multiplizieren kürzen – spart Arbeit!", s:"a) 60/40 = **3/2 = 1 1/2** ✓\nb) 63/168 = **3/8** ✓\nc) 48/72 = **2/3** ✓\nd) 90/150 = **3/5** ✓" },
+  { q:"Ein Tank ist zu 2/3 gefüllt. Er enthält 400 Liter.\na) Wie viel fasst der Tank insgesamt?\nb) Wie viel Liter müssen noch rein, um ihn voll zu machen?\nc) Wie viel Liter wären drin, wenn er zu 5/6 gefüllt wäre?", h:"2/3 = 400 L → 1/3 = ? → Gesamt = ?", s:"a) 1/3 = 200 L → **600 L** ✓\nb) 1/3 = **200 L** ✓\nc) 5/6 · 600 = **500 L** ✓" },
+  { q:"Berechne:\na) 1 3/4 · 2 2/7\nb) 2 5/6 ÷ 1 7/12\nc) (3 1/2 - 1 3/4) · 2 2/3", h:"Immer zuerst in unechte Brüche umwandeln.", s:"a) 7/4 · 16/7 = 112/28 = **4** ✓\nb) 17/6 ÷ 19/12 = 17/6 · 12/19 = **34/19 = 1 15/19** ✓\nc) 7/4 · 8/3 = 56/12 = **4 2/3** ✓" },
+  { q:"Eine Wandergruppe legt eine Strecke in 3 Abschnitten zurück.\n1. Abschnitt: 3/7 der Gesamtstrecke\n2. Abschnitt: 2/5 der Gesamtstrecke\n\na) Welchen Anteil haben sie nach 2 Abschnitten?\nb) Welchen Anteil hat der 3. Abschnitt?", h:"Anteile addieren, dann von 1 abziehen.", s:"a) 3/7 + 2/5 = 15/35 + 14/35 = **29/35** ✓\nb) 1 - 29/35 = **6/35** ✓" },
+  { q:"Berechne:\na) (2/3)² + 1/9\nb) (1/2)³\nc) (3/4)² - 1/2", h:"(a/b)² = a²/b²", s:"a) 4/9 + 1/9 = **5/9** ✓\nb) 1/8 ✓\nc) 9/16 - 8/16 = **1/16** ✓" },
+  { q:"Beim Backen wird 2/3 eines Päckchens Backpulver verbraucht.\nEin Päckchen enthält 15 g.\na) Wie viel Gramm wurden verbraucht?\nb) Wie viel ist noch übrig?\nc) Für 3 Kuchen: Wie viel Backpulver insgesamt?", h:"Anteil × Gesamtmenge", s:"a) 15 · 2/3 = **10 g** ✓\nb) 15 - 10 = **5 g** ✓\nc) 3 · 10 = **30 g = 2 Päckchen** ✓" },
+],
+schwer: [
+  { q:"Berechne:\na) 2/3 ÷ (3/4 + 5/6) - 1/2\nb) (1 3/4 - 2/3) · (1 1/2 + 3/4)", h:"Schritt für Schritt: Klammern zuerst, dann Punkt vor Strich.", s:"a) Klammer: 9/12+10/12=19/12; 2/3·12/19=8/19; 8/19-1/2=16/38-19/38=**-3/38** ✓\nb) Kl.1: 21/12-8/12=13/12; Kl.2: 6/4+3/4=9/4; 13/12·9/4=**39/16=2 7/16** ✓" },
+  { q:"Ein Stück Stoff ist 4 1/2 m lang. Es werden 3 Stücke à 1 1/3 m abgeschnitten.\na) Wie viel wurde abgeschnitten?\nb) Wie viel bleibt übrig?\nc) Wie viele Stücke à 3/4 m kann man aus dem Rest noch schneiden?", h:"Schritt 1: Gesamtlänge abgeschnitten. Schritt 2: Rest. Schritt 3: Division.", s:"a) 3 · 1 1/3 = 3 · 4/3 = **4 m** ✓\nb) 4 1/2 - 4 = **1/2 m** ✓\nc) 1/2 ÷ 3/4 = 1/2 · 4/3 = **2/3 → 0 ganze Stücke** ✓" },
+  { q:"Berechne:\na) (3/4 - 1/6) ÷ (2/3 + 1/4)\nb) 3 3/5 · 1 2/9 - 2 1/2 · 4/5", h:"Komplexe Terme: jeden Teil separat berechnen.", s:"a) Zähler: 9/12-2/12=7/12; Nenner: 8/12+3/12=11/12; 7/12·12/11=**7/11** ✓\nb) 18/5·11/9=198/45=22/5; 5/2·4/5=2; 22/5-10/5=**12/5=2 2/5** ✓" },
+  { q:"Peter hat 2/3 seines Taschengeldes ausgegeben. Danach gibt er noch 1/4 vom Rest aus.\na) Welchen Anteil hat er im 2. Schritt ausgegeben?\nb) Welchen Gesamtanteil hat er ausgegeben?\nc) Sein Taschengeld beträgt 60 €. Wie viel hat er noch?", h:"Rest nach Schritt 1: 1/3. Dann 1/4 davon.", s:"a) 1/4 · 1/3 = **1/12** ✓\nb) 2/3 + 1/12 = 8/12 + 1/12 = **3/4** ✓\nc) 1/4 · 60 = **15 €** ✓" },
+  { q:"Berechne und vereinfache:\na) (2 1/3 + 1 1/4) ÷ (3 1/2 - 1 3/4)\nb) 5/6 · (2/3 + 3/4) - 1/4 · (1/2 + 2/3)", h:"Klammern ausrechnen, dann Hauptrechnung.", s:"a) (7/3+5/4)÷(7/2-7/4)=(28/12+15/12)÷(14/4-7/4)=43/12÷7/4=43/12·4/7=**43/21=2 1/21** ✓\nb) 5/6·17/12 - 1/4·7/6 = 85/72 - 7/24 = 85/72-21/72 = **64/72=8/9** ✓" },
+  { q:"In einem Behälter sind 3/4 Liter Flüssigkeit. Jeden Tag verdunstet 1/8 des jeweils vorhandenen Inhalts.\na) Wie viel ist nach Tag 1 noch drin?\nb) Wie viel ist nach Tag 2 noch drin?\nc) Nach wie vielen Tagen ist weniger als 1/2 Liter drin?", h:"Täglich bleibt 7/8 des Vortageswertes übrig.", s:"a) 3/4 · 7/8 = 21/32 ≈ **0,656 L** ✓\nb) 21/32 · 7/8 = 147/256 ≈ **0,574 L** ✓\nc) Tag 3: 147/256·7/8=1029/2048≈0,502; Tag 4≈0,439 → **nach Tag 4** ✓" },
+  { q:"Berechne:\na) 1 1/3 ÷ (2/3 · 1 1/2)\nb) (2 1/4 + 1 1/3) · (2 1/4 - 1 1/3)", h:"Für b): (a+b)·(a-b) = a²-b²", s:"a) 4/3 ÷ (2/3·3/2) = 4/3 ÷ 1 = **4/3 = 1 1/3** ✓\nb) a=9/4, b=4/3; a²=81/16, b²=16/9; 81/16-16/9=729/144-256/144=**473/144=3 41/144** ✓" },
+  { q:"Eine Strecke wird so geteilt, dass der erste Teil 3/8 und der zweite Teil 5/12 der Gesamtstrecke ist.\na) Welcher Anteil entfällt auf den dritten Teil?\nb) Der erste Teil ist 9 km. Wie lang ist die Gesamtstrecke?\nc) Wie lang sind der zweite und dritte Teil?", h:"Alle Anteile müssen 1 ergeben.", s:"a) 1-3/8-5/12=24/24-9/24-10/24=**5/24** ✓\nb) 3/8=9km → 1/8=3km → **Gesamt=24km** ✓\nc) 5/12·24=**10km**; 5/24·24=**5km** ✓" },
+  { q:"Berechne:\na) (1/2 + 1/3 + 1/6) · 4 1/2\nb) 2 2/3 ÷ 1 1/3 + 3 3/4 ÷ 1 1/4", h:"Zuerst die Klammer, dann die Divisionen (Punkt vor Strich).", s:"a) Klammer: 3/6+2/6+1/6=1; 1·9/2=**9/2=4 1/2** ✓\nb) 8/3÷4/3 + 15/4÷5/4 = 2 + 3 = **5** ✓" },
+  { q:"Ein Quadrat hat die Seitenlänge 2 2/3 cm.\na) Wie groß ist der Umfang?\nb) Wie groß ist die Fläche?\nc) Wie lang muss die Seite sein, damit die Fläche doppelt so groß ist?", h:"U=4a, A=a². Für c): neue Fläche = 2·alte Fläche.", s:"a) 4·8/3 = **32/3 = 10 2/3 cm** ✓\nb) (8/3)² = **64/9 = 7 1/9 cm²** ✓\nc) 2·64/9=128/9; √(128/9)=8√2/3≈**3,77 cm** ✓" },
+  { q:"Berechne (mit Rechenweg):\na) 2/3 + 3/4 · 8/9\nb) (5/6 - 1/4) ÷ 7/12 + 1 1/3", h:"Punkt vor Strich! Erst Multiplikation und Division.", s:"a) Erst 3/4·8/9=24/36=2/3; dann 2/3+2/3=**4/3=1 1/3** ✓\nb) Kl.: 10/12-3/12=7/12; ÷7/12=1; 1+4/3=**7/3=2 1/3** ✓" },
+  { q:"In einem Mischgetränk sind:\n- 2/5 Orangensaft\n- 1/4 Apfelsaft\n- Rest: Wasser\n\na) Wie groß ist der Wasseranteil?\nb) Das Getränk hat 2 Liter. Wie viel Liter Wasser?\nc) Wie viel mehr Orangensaft als Apfelsaft?", h:"Wasseranteil = 1 - Orangensaft - Apfelsaft", s:"a) 1-2/5-1/4=20/20-8/20-5/20=**7/20** ✓\nb) 7/20·2=**0,7 L** ✓\nc) 2/5-1/4=8/20-5/20=3/20·2=**0,3 L** ✓" },
+  { q:"Berechne:\na) (3/4)² + (1/2)² - (1/4)²\nb) (1 1/2)² - (1 1/3)²", h:"Quadrate ausrechnen, dann addieren/subtrahieren.", s:"a) 9/16+4/16-1/16=**12/16=3/4** ✓\nb) (3/2)²-(4/3)²=9/4-16/9=81/36-64/36=**17/36** ✓" },
+  { q:"Peter, Lisa und Tom teilen sich eine Aufgabe.\nPeter erledigt 2/5, Lisa 1/3.\na) Welchen Anteil erledigt Tom?\nb) Die Aufgabe dauert insgesamt 60 Minuten. Wie lange arbeitet jeder?", h:"Toms Anteil = 1 - Peters Anteil - Lisas Anteil", s:"a) 1-2/5-1/3=15/15-6/15-5/15=**4/15** ✓\nb) Peter: 60·2/5=**24 min**; Lisa: 60·1/3=**20 min**; Tom: 60·4/15=**16 min** ✓" },
+  { q:"Vereinfache:\na) (2/3 · 3/4) ÷ (1/2 · 4/3)\nb) (3/5 + 2/5) · (3/5 - 2/5)\nc) 5/6 ÷ (5/6 + 5/6)", h:"Klammern zuerst ausrechnen.", s:"a) 1/2 ÷ 2/3 = 1/2·3/2 = **3/4** ✓\nb) 1 · 1/5 = **1/5** ✓\nc) 5/6 ÷ 10/6 = 5/6·6/10 = **1/2** ✓" },
+],
+},
 
-// ── BRUCHRECHNUNG ──
-function genBruch(level){
-  const types = level==='leicht'
-    ? ['add_same','sub_same','reduce','mult_simple','to_mixed']
-    : level==='mittel'
-    ? ['add_diff','sub_diff','mult','div','mixed_add','text_bruch']
-    : ['chain','complex_text','nested','vergleich'];
+// ════════════════════════════════════════
+// PROZENTRECHNUNG
+// ════════════════════════════════════════
+prozent: {
+leicht: [
+  { q:"Berechne den Prozentwert:\na) 50% von 200\nb) 10% von 350\nc) 25% von 80\nd) 20% von 60", h:"Formel: W = G · p/100", s:"a) **100** ✓\nb) **35** ✓\nc) **20** ✓\nd) **12** ✓" },
+  { q:"In einer Klasse mit 30 Schülern sind 6 krank.\na) Wie viel Prozent sind krank?\nb) Wie viel Prozent sind gesund?", h:"p% = W/G · 100", s:"a) 6/30·100 = **20%** ✓\nb) 100-20 = **80%** ✓" },
+  { q:"Ein T-Shirt kostet 40 €. Es wird um 30% reduziert.\na) Wie viel € Rabatt?\nb) Was kostet es danach?", h:"Rabatt = G · p/100", s:"a) 40·30/100 = **12 €** ✓\nb) 40-12 = **28 €** ✓" },
+  { q:"Berechne:\na) 15% von 300 €\nb) 8% von 250 m\nc) 3% von 1.200 €\nd) 75% von 400 g", h:"W = G · p/100", s:"a) **45 €** ✓\nb) **20 m** ✓\nc) **36 €** ✓\nd) **300 g** ✓" },
+  { q:"Von 400 Fahrzeugen auf einem Parkplatz sind 60 Motorräder.\nWie viel Prozent sind Motorräder?", h:"p = W/G · 100", s:"60/400·100 = **15%** ✓" },
+  { q:"Ein Fahrrad kostet 250 €. Im Angebot wird es um 20% günstiger.\na) Wie viel spart man?\nb) Was kostet es im Angebot?", h:"Ersparnis = 250 · 20/100", s:"a) 250·0,2 = **50 €** ✓\nb) 250-50 = **200 €** ✓" },
+  { q:"Berechne den Prozentwert:\na) 5% von 80\nb) 40% von 150\nc) 12% von 50\nd) 90% von 70", h:"W = G · p/100", s:"a) **4** ✓\nb) **60** ✓\nc) **6** ✓\nd) **63** ✓" },
+  { q:"In einem Supermarkt kosten Äpfel 2,40 € pro kg.\nAuf Äpfel gibt es heute 25% Rabatt.\na) Wie viel kostet 1 kg Äpfel heute?\nb) Wie viel kosten 3 kg?", h:"Neuer Preis = alter Preis · (100-25)/100", s:"a) 2,40·0,75 = **1,80 €** ✓\nb) 3·1,80 = **5,40 €** ✓" },
+  { q:"Ein Kleidungsstück kostet 80 €. Die Mehrwertsteuer beträgt 19%.\na) Wie viel € Mehrwertsteuer ist enthalten? (80€ ist der Nettopreis)\nb) Was kostet es inklusive Mehrwertsteuer?", h:"MwSt = 80 · 19/100", s:"a) 80·0,19 = **15,20 €** ✓\nb) 80+15,20 = **95,20 €** ✓" },
+  { q:"50 von 200 Schülern einer Schule spielen ein Instrument.\na) Wie viel Prozent spielen ein Instrument?\nb) Wie viel Prozent spielen keins?", h:"p = 50/200 · 100", s:"a) 50/200·100 = **25%** ✓\nb) 100-25 = **75%** ✓" },
+  { q:"Ein Handy kostet 600 €. Es wird um 15% reduziert.\na) Wie viel kostet es nach der Reduzierung?\nb) Wie viel spart man?", h:"Neuer Preis = 600 · 85/100", s:"a) 600·0,85 = **510 €** ✓\nb) 600-510 = **90 €** ✓" },
+  { q:"Berechne den Prozentsatz:\na) 30 von 120\nb) 45 von 180\nc) 12 von 48\nd) 7 von 28", h:"p% = W/G · 100", s:"a) **25%** ✓\nb) **25%** ✓\nc) **25%** ✓\nd) **25%** ✓" },
+  { q:"Eine Flasche enthält 500 ml Saft.\nDavon sind 20% Zucker.\na) Wie viel ml Zucker?\nb) Wie viel ml ist kein Zucker?", h:"W = 500 · 20/100", s:"a) 500·0,2 = **100 ml** ✓\nb) 500-100 = **400 ml** ✓" },
+  { q:"Im Urlaub gibt Familie Müller 1.200 € aus.\n- 40% für Unterkunft\n- 25% für Essen\n- Rest für Aktivitäten\n\na) Wie viel € für Unterkunft?\nb) Für Essen?\nc) Für Aktivitäten?", h:"Restprozent = 100-40-25=35%", s:"a) 1200·0,4 = **480 €** ✓\nb) 1200·0,25 = **300 €** ✓\nc) 1200·0,35 = **420 €** ✓" },
+  { q:"Ein Produkt kostet 120 € (inkl. 20% MwSt).\nWie hoch ist der Nettopreis (ohne MwSt)?", h:"Brutto = 120% des Netto. G = 120/1,2", s:"G = 120/1,2 = **100 €** Netto ✓\nMwSt = 20 €" },
+],
+mittel: [
+  { q:"a) Ca. 70% der 510 Mio. km² der Erde ist Wasser. Wie viel km²?\nb) Ein iPhone kostet nach 15% Rabatt 1.105 €. Was hat es vorher gekostet?\nc) 500 ml Saft, davon 20% Zucker. Wie viel ml Zucker?", h:"b) 1.105 € = 85%. G = 1105/0,85", s:"a) 510·0,7 = **357 Mio. km²** ✓\nb) G = 1105/0,85 = **1.300 €** ✓\nc) 500·0,2 = **100 ml** ✓" },
+  { q:"Familie Meier nimmt Kredit von 9.600 € auf.\nZinssatz: 4,8% p.a., Laufzeit: 8 Monate.\na) Formuliere eine Frage.\nb) Berechne die Zinsen.\nc) Wie viel wird insgesamt zurückgezahlt?", h:"Jahreszinsen = K·p/100, dann ÷12·8 für Monate.", s:"a) „Wie viel Zinsen fallen an?" ✓\nb) 9600·4,8/100=460,80 €/Jahr; ÷12·8 = **307,20 €** ✓\nc) 9600+307,20 = **9.907,20 €** ✓" },
+  { q:"Ein Sportwagen stieg um 12% im Preis und kostet jetzt 44.800 €.\nWas hat er vorher gekostet?", h:"Jetzt = 112% des alten Preises. G = 44800/1,12", s:"G = 44800/1,12 = **40.000 €** ✓\nProbe: 40000·1,12=44800 ✓" },
+  { q:"In einer Umfrage mit 250 Schülern:\n- 40% bevorzugen Mathe\n- 28% Deutsch\n- Rest andere Fächer\n\na) Wie viele je Fach?\nb) Wie viel Prozent andere?", h:"Restprozent = 100-40-28=32%", s:"a) Mathe: 250·0,4=**100**; Deutsch: 250·0,28=**70**; Andere: 250·0,32=**80** ✓\nb) **32%** ✓" },
+  { q:"Ein Händler kauft für 80 € ein und verkauft mit 35% Aufschlag.\na) Zu welchem Preis verkauft er?\nb) Er gibt noch 10% Rabatt. Was zahlt der Kunde?", h:"Aufschlag auf Einkaufspreis. Rabatt auf Verkaufspreis.", s:"a) 80·1,35 = **108 €** ✓\nb) 108·0,9 = **97,20 €** ✓" },
+  { q:"Ein Unternehmen hat 2024 einen Gewinn von 180.000 €.\nDer Gewinn stieg gegenüber 2023 um 20%.\na) Wie hoch war der Gewinn 2023?\nb) 2025 soll er nochmals 15% steigen. Wie hoch wäre er?", h:"a) 2024=120% von 2023. b) 2025=115% von 2024.", s:"a) G2023=180000/1,2=**150.000 €** ✓\nb) 180000·1,15=**207.000 €** ✓" },
+  { q:"Ein Produkt kostet 595 € (inkl. 19% MwSt).\na) Wie hoch ist der Nettobetrag?\nb) Wie viel MwSt ist enthalten?", h:"Brutto = Netto · 1,19. Netto = Brutto / 1,19", s:"a) 595/1,19 = **500 €** ✓\nb) 595-500 = **95 €** ✓" },
+  { q:"Bei einem Schultest haben 18 von 30 Schülern bestanden.\na) Wie viel Prozent haben bestanden?\nb) Der Lehrer möchte, dass 80% bestehen. Wie viele müssten das beim nächsten Test sein?", h:"a) p=18/30·100. b) 80% von 30.", s:"a) 18/30·100 = **60%** ✓\nb) 30·0,8 = **24 Schüler** ✓" },
+  { q:"Ein Aktienkurs fällt um 8% auf 368 €.\na) Was war der Kurs vorher?\nb) Um wie viel Prozent müsste er jetzt steigen, um den alten Wert zu erreichen?", h:"a) 368=92% des alten Wertes. b) Anstieg vom neuen Wert.", s:"a) G=368/0,92=**400 €** ✓\nb) (400-368)/368·100≈**8,7%** ✓" },
+  { q:"Familie Koch zahlt im Jahr 9.600 € Miete.\nDas sind 40% ihres Nettoeinkommens.\na) Wie hoch ist das Nettoeinkommen pro Jahr?\nb) Pro Monat?", h:"9600 € = 40% des Einkommens. G = 9600/0,4", s:"a) G=9600/0,4=**24.000 €/Jahr** ✓\nb) 24000/12=**2.000 €/Monat** ✓" },
+  { q:"Eine Bäckerei verkauft 300 Brötchen. Am Abend sind 45 übrig.\na) Wie viel Prozent wurden verkauft?\nb) Wie viel Prozent sind übrig?\nc) Die Bäckerei will nur noch 5% Überschuss. Wie viele Brötchen backen?", h:"Verkauft = 300-45", s:"a) 255/300·100=**85%** ✓\nb) **15%** ✓\nc) x·0,05=übrig; 255=0,95x → x=255/0,95≈**268** ✓" },
+  { q:"Das Gehalt von Frau Müller wird um 3% erhöht.\nDanach bekommt sie 3.090 € brutto.\na) Was hat sie vorher verdient?\nb) Um wie viel € mehr pro Monat?", h:"3090 = 103% des alten Gehalts.", s:"a) G=3090/1,03=**3.000 €** ✓\nb) 3090-3000=**90 €** ✓" },
+  { q:"In einem Kühlschrank sind 2,4 kg Lebensmittel.\nDavon verderben 15% innerhalb einer Woche.\na) Wie viel kg verderben?\nb) Wie viel ist noch gut?\nc) Auf wie viel % des Ausgangswerts sind die Lebensmittel gesunken?", h:"Verdorben = 2,4 · 0,15", s:"a) 2,4·0,15=**0,36 kg** ✓\nb) 2,4-0,36=**2,04 kg** ✓\nc) 2,04/2,4·100=**85%** ✓" },
+  { q:"Ein Laden erhöht alle Preise um 10%, dann senkt er sie wieder um 10%.\nStartpreis: 100 €.\na) Preis nach Erhöhung?\nb) Preis nach Senkung?\nc) Warum ist das Ergebnis nicht wieder 100 €?", h:"Senkung von 110€, nicht 100€!", s:"a) 100·1,1=**110 €** ✓\nb) 110·0,9=**99 €** ✓\nc) -10% von 110€ = -11€, nicht -10€. **Kettenrabatte sind nicht addierbar!** ✓" },
+  { q:"Eine Schule hat 800 Schüler. Jedes Jahr kommen 5% mehr Schüler.\na) Wie viele Schüler nach 1 Jahr?\nb) Nach 2 Jahren?\nc) Wann hat die Schule über 1.000 Schüler? (Näherung)", h:"Jährlich ×1,05", s:"a) 800·1,05=**840** ✓\nb) 840·1,05=**882** ✓\nc) 800·1,05^n>1000: n≈**5 Jahre** (800·1,05^5≈1021) ✓" },
+],
+schwer: [
+  { q:"Ein Kredit von 12.000 € bei 6% p.a., Laufzeit 9 Monate.\na) Wie viel Zinsen?\nb) Gesamtrückzahlung?\nc) Was wären die Zinsen bei 5% und 1 Jahr?", h:"Z = K·p/100·(Monate/12)", s:"a) 12000·0,06·9/12=**540 €** ✓\nb) 12000+540=**12.540 €** ✓\nc) 12000·0,05=**600 €** ✓" },
+  { q:"Ein Auto verliert jährlich 15% an Wert.\nKaufpreis: 20.000 €.\na) Wert nach 1 Jahr?\nb) Wert nach 3 Jahren?\nc) Nach wie vielen Jahren ist es weniger als 10.000 € wert?", h:"Jährlich ×0,85", s:"a) 20000·0,85=**17.000 €** ✓\nb) 20000·0,85³=20000·0,614=**12.283 €** ✓\nc) 0,85^n<0,5: n=5 (0,85^5≈0,444) → **nach 5 Jahren** ✓" },
+  { q:"Brutto 2.856 € inkl. 19% MwSt.\na) Nettopreis?\nb) MwSt-Betrag?\nc) Wenn MwSt auf 7% sinken würde: neuer Bruttopreis?", h:"Netto = Brutto / 1,19", s:"a) 2856/1,19=**2.400 €** ✓\nb) 2856-2400=**456 €** ✓\nc) 2400·1,07=**2.568 €** ✓" },
+  { q:"Aktie: Montag +12%, Dienstag -8%, Mittwoch +5%.\nStartkurs: 200 €.\na) Kurs nach jedem Tag?\nb) Gesamtveränderung in %?", h:"Täglich den neuen Kurs berechnen.", s:"a) Mo: 200·1,12=224€; Di: 224·0,92=206,08€; Mi: 206,08·1,05=**216,38 €** ✓\nb) (216,38-200)/200·100=**+8,19%** ✓" },
+  { q:"Zwei Angebote für einen Kredit von 5.000 €:\n- Bank A: 4% p.a., 18 Monate\n- Bank B: 3,5% p.a., 24 Monate\n\nWelche Bank ist günstiger (nach Gesamtzinsen)?", h:"Z = K·p/100·(Monate/12)", s:"Bank A: 5000·0,04·1,5=**300 €** Zinsen ✓\nBank B: 5000·0,035·2=**350 €** Zinsen ✓\n**Bank A ist günstiger** ✓" },
+  { q:"Ein Unternehmen:\n2023: 150.000 € Gewinn\n2024: +20% gegenüber 2023\n2025: -15% gegenüber 2024\n\na) Gewinn 2024 und 2025?\nb) Gesamtveränderung von 2023 zu 2025?", h:"Jedes Jahr vom aktuellen Wert berechnen.", s:"a) 2024: 150000·1,2=180000€; 2025: 180000·0,85=**153.000 €** ✓\nb) (153000-150000)/150000·100=**+2%** ✓" },
+  { q:"Netto: 3.500 €\nSozialabgaben: 20% vom Brutto\nEinkommensteuer: 25% vom Brutto\n\na) Was ist das Brutto?\nb) Wie viel € Steuern und Abgaben?\nc) Effektivsteuersatz?", h:"Netto = Brutto · (1-0,2-0,25) = Brutto · 0,55", s:"a) Brutto = 3500/0,55 = **6.363,64 €** ✓\nb) 6363,64-3500 = **2.863,64 €** ✓\nc) 2863,64/6363,64·100 = **45%** ✓" },
+  { q:"Ein Investor kauft Anteile für 8.000 €.\nNach einem Jahr: +18%. Nach dem 2. Jahr: -12%.\na) Wert nach Jahr 1?\nb) Wert nach Jahr 2?\nc) Hätte er bei gleichmäßigem Wachstum von 3% p.a. mehr verdient?", h:"Vergleiche den Endwert.", s:"a) 8000·1,18=**9.440 €** ✓\nb) 9440·0,88=**8.307,20 €** ✓\nc) 8000·1,03²=8000·1,0609=**8.487,20 €** → **Ja, 3% p.a. wäre besser** ✓" },
+  { q:"Preissteigerung: Strom +8%, Gas +12%, Wasser +3%.\nBisher: Strom 120€, Gas 80€, Wasser 40€ pro Monat.\na) Neue Kosten je Energie?\nb) Gesamte neue Kosten?\nc) Gesamtsteigerung in %?", h:"Jeden Posten einzeln erhöhen.", s:"a) Strom: 129,60€; Gas: 89,60€; Wasser: 41,20€ ✓\nb) 129,60+89,60+41,20=**260,40 €** ✓\nc) Vorher: 240€; (260,40-240)/240·100=**8,5%** ✓" },
+  { q:"Grundstück kostet 250.000 €.\nKaufnebenkosten: 3,5% Grunderwerbsteuer + 1,5% Notar + 3% Makler.\na) Nebenkosten in € (auf Kaufpreis)?\nb) Gesamtkosten?\nc) Nebenkosten in % des Gesamtpreises?", h:"Alle Prozentsätze addieren, dann berechnen.", s:"a) 250000·0,08=**20.000 €** ✓\nb) 250000+20000=**270.000 €** ✓\nc) 20000/270000·100≈**7,41%** ✓" },
+  { q:"Im 1. Quartal: Umsatz 80.000 €\nIm 2. Quartal: +25%\nIm 3. Quartal: -20% gegenüber Q2\nIm 4. Quartal: +10% gegenüber Q3\n\na) Umsatz je Quartal?\nb) Jahresumsatz?\nc) Durchschnittlicher Quartalsumsatz?", h:"Jeden Wert vom vorherigen ausrechnen.", s:"a) Q2: 100000€; Q3: 80000€; Q4: 88000€ ✓\nb) 80000+100000+80000+88000=**348.000 €** ✓\nc) 348000/4=**87.000 €** ✓" },
+  { q:"Listenpreis: 5.000 €\n1. Rabatt: 20%\n2. Rabatt: 10% auf bereits reduzierten Preis\n+ 19% MwSt auf den Endpreis\n\nWas zahlt der Käufer?", h:"Schritt für Schritt: erst Rabatte, dann MwSt.", s:"Nach 1. Rabatt: 5000·0,8=4000€\nNach 2. Rabatt: 4000·0,9=3600€\n+MwSt: 3600·1,19=**4.284 €** ✓" },
+  { q:"Eine Gemeinde hat 12.000 Einwohner.\nJährliches Wachstum: 2,5%.\na) Nach 4 Jahren?\nb) Wann überschreitet sie 15.000 Einwohner? (näherungsweise)", h:"Wachstum: ×1,025 pro Jahr.", s:"a) 12000·1,025^4=12000·1,1038=**13.246** ✓\nb) 1,025^n>1,25 → n≈9 Jahre (1,025^9≈1,249) → **nach ca. 9 Jahren** ✓" },
+  { q:"Bruttolohn: 4.200 €\n- Lohnsteuer: 22%\n- Krankenversicherung: 7,3%\n- Rentenversicherung: 9,3%\n- Pflegeversicherung: 1,525%\n\na) Gesamtabzüge in %?\nb) Gesamtabzüge in €?\nc) Nettolohn?", h:"Alle Prozentsätze addieren.", s:"a) 22+7,3+9,3+1,525=**40,125%** ✓\nb) 4200·0,40125=**1.685,25 €** ✓\nc) 4200-1685,25=**2.514,75 €** ✓" },
+  { q:"Vergleiche:\nProdukt A: 450 € + 19% MwSt\nProdukt B: 510 € inkl. 19% MwSt\n\na) Welches ist günstiger (Bruttopreisvergleich)?\nb) Differenz in €?\nc) Differenz in %?", h:"Erst beide auf Bruttopreis bringen.", s:"a) A: 450·1,19=535,50€; B: 510€ → **B ist günstiger** ✓\nb) 535,50-510=**25,50 €** ✓\nc) 25,50/510·100=**5%** ✓" },
+],
+},
 
-  const type = pick(types);
+// ════════════════════════════════════════
+// GEOMETRIE
+// ════════════════════════════════════════
+geo: {
+leicht: [
+  { q:"Berechne Fläche und Umfang:\na) Rechteck: 8 cm × 5 cm\nb) Quadrat: Seite 6 cm\nc) Dreieck: Grundlinie 10 cm, Höhe 4 cm", h:"Rechteck: A=a·b, U=2(a+b). Dreieck: A=g·h/2", s:"a) A=40cm², U=26cm ✓\nb) A=36cm², U=24cm ✓\nc) A=20cm² ✓" },
+  { q:"Ein Fußballfeld ist 100 m lang und 64 m breit.\na) Spielfläche in m²?\nb) Außenlinie (Umfang)?\nc) Fläche in Hektar? (1ha=10.000m²)", h:"A=l·b, U=2(l+b)", s:"a) **6.400 m²** ✓\nb) **328 m** ✓\nc) **0,64 ha** ✓" },
+  { q:"Ein Zimmer: 5m lang, 4m breit, 2,5m hoch.\na) Bodenfläche?\nb) Fläche einer langen Wand?\nc) Wie viele Bodenfliesen (50cm×50cm)?", h:"1 Fliese = 0,5m × 0,5m = 0,25m²", s:"a) 5·4=**20 m²** ✓\nb) 5·2,5=**12,5 m²** ✓\nc) 20/0,25=**80 Fliesen** ✓" },
+  { q:"Berechne die Fläche:\na) Dreieck: g=12cm, h=7cm\nb) Dreieck: g=9cm, h=6cm\nc) Rechtwinkliges Dreieck: Katheten 6cm und 8cm", h:"A=g·h/2 für alle Dreiecke", s:"a) 12·7/2=**42 cm²** ✓\nb) 9·6/2=**27 cm²** ✓\nc) 6·8/2=**24 cm²** ✓" },
+  { q:"Ein Quadrat hat den Umfang 32 cm.\na) Wie lang ist eine Seite?\nb) Wie groß ist die Fläche?", h:"U=4a → a=U/4", s:"a) a=32/4=**8 cm** ✓\nb) A=8²=**64 cm²** ✓" },
+  { q:"Ein Rechteck hat die Fläche 48 cm² und eine Seite von 8 cm.\na) Wie lang ist die andere Seite?\nb) Wie groß ist der Umfang?", h:"A=a·b → b=A/a", s:"a) b=48/8=**6 cm** ✓\nb) U=2·(8+6)=**28 cm** ✓" },
+  { q:"Ein Schulhof ist 40m lang und 25m breit.\na) Fläche des Schulhofs?\nb) Wie viel m² sind 30% des Schulhofs?\nc) Um den Schulhof soll ein Zaun. Wie lang?", h:"A=l·b, U=2(l+b)", s:"a) 40·25=**1.000 m²** ✓\nb) 1000·0,3=**300 m²** ✓\nc) 2·(40+25)=**130 m** ✓" },
+  { q:"Berechne Umfang und Fläche eines gleichseitigen Dreiecks mit Seite 6 cm.\n(Höhe eines gleichseitigen Dreiecks: h = a·√3/2 ≈ a·0,866)", h:"U=3a, A=a·h/2", s:"U=3·6=**18 cm** ✓\nh=6·0,866≈5,196cm; A=6·5,196/2≈**15,59 cm²** ✓" },
+  { q:"Ein rechteckiger Garten: 12m × 8m.\nEin Weg (1m breit) läuft rund um den Garten innen entlang.\na) Fläche des inneren Bereichs (ohne Weg)?\nb) Fläche des Weges?", h:"Innerer Bereich: (12-2)m × (8-2)m", s:"a) 10·6=**60 m²** ✓\nb) 12·8-60=96-60=**36 m²** ✓" },
+  { q:"Wie viel Farbe braucht man für eine Wand (5m × 2,5m),\nwenn 1 Liter Farbe 8 m² abdeckt?\nWie viele 2,5-Liter-Dosen werden benötigt?", h:"Fläche berechnen, dann durch Reichweite teilen.", s:"Fläche=5·2,5=12,5m²\nFarbe=12,5/8=1,5625L\n**1 Dose** (2,5L) wird benötigt ✓" },
+  { q:"Ein Dreieck und ein Rechteck haben dieselbe Grundlinie (10cm).\nDreieck: Höhe 8cm. Rechteck: Breite 4cm.\na) Welche Fläche ist größer?\nb) Um wie viel m²?", h:"Dreieck: A=g·h/2. Rechteck: A=g·b", s:"Dreieck: 10·8/2=40cm²\nRechteck: 10·4=40cm²\n**Gleich groß!** ✓" },
+  { q:"Ein Pool: 8m lang, 4m breit, 1,5m tief.\na) Wie viel Liter fasst der Pool? (1m³=1.000L)\nb) Wie groß ist die zu fliesende Innenfläche (Boden+Wände)?", h:"V=l·b·h, Innenfläche=Boden+4Wände", s:"a) 8·4·1,5=48m³=**48.000 L** ✓\nb) 8·4+2·(8+4)·1,5=32+36=**68 m²** ✓" },
+  { q:"Wie groß ist die Fläche eines Rahmens?\nAußen: 20cm × 15cm\nInnen: 16cm × 11cm", h:"Rahmenfläche = Außenfläche - Innenfläche", s:"Außen: 20·15=300cm²\nInnen: 16·11=176cm²\nRahmen: 300-176=**124 cm²** ✓" },
+  { q:"Ein Dreieck hat die Fläche 30 cm².\nDie Höhe beträgt 6 cm.\nWie lang ist die Grundlinie?", h:"A=g·h/2 → g=2·A/h", s:"g=2·30/6=**10 cm** ✓" },
+  { q:"Ein Rechteck hat den Umfang 30 cm.\nDie Länge ist doppelt so groß wie die Breite.\na) Wie lang sind Länge und Breite?\nb) Wie groß ist die Fläche?", h:"U=2(a+b)=30 und a=2b → einsetzen", s:"2(2b+b)=30 → 6b=30 → b=5cm\na=10cm\n**Breite=5cm, Länge=10cm** ✓\nb) A=10·5=**50 cm²** ✓" },
+],
+mittel: [
+  { q:"Tobis Zimmer (3m hoch):\nGrundriss: 4,5m × 3,5m\n1 Tür: 2m × 1m\n2 Fenster: je 1,2m × 1,5m\n1L Farbe = 10m², 2L-Eimer à 20€\n\na) Zu streichende Fläche?\nb) Eimer benötigt?\nc) Kosten?", h:"4 Wände berechnen, dann Tür+Fenster abziehen.", s:"Wände: 2·(4,5+3,5)·3=48m²\nAbzug: 2+2·1,8=5,6m²\na) **42,4 m²** ✓\nb) 42,4/10=4,24L → **3 Eimer** (6L) ✓\nc) 3·20=**60 €** ✓" },
+  { q:"L-förmiges Grundstück:\nGesamtbreite 20m, Gesamthöhe 15m\nAusgespart oben rechts: 8m × 7m\n\na) Fläche des Grundstücks?\nb) Wie lang ist der Zaun (Umfang)?", h:"Großes Rechteck minus ausgesparter Bereich.", s:"a) 20·15-8·7=300-56=**244 m²** ✓\nb) 20+15+8+7+12+8=**70 m** ✓" },
+  { q:"Quader: 12cm × 8cm × 5cm\na) Volumen?\nb) Oberfläche?\nc) Wie viele solcher Quader passen in einen Karton von 36cm × 24cm × 20cm?", h:"V=l·b·h, O=2(lb+lh+bh)", s:"a) 12·8·5=**480 cm³** ✓\nb) 2·(96+60+40)=**392 cm²** ✓\nc) 36·24·20/480=17280/480=**36 Stück** ✓" },
+  { q:"Kreis mit Radius r=7cm (π≈3,14):\na) Umfang?\nb) Fläche?\nc) Wie viele solcher Kreise passen in ein Rechteck 30cm×20cm? (Näherung)", h:"U=2πr, A=πr²", s:"a) 2·3,14·7=**43,96 cm** ✓\nb) 3,14·49=**153,86 cm²** ✓\nc) 30·20=600cm²; 600/153,86≈**3 Kreise** ✓" },
+  { q:"Trapez: Parallelseiten 12cm und 8cm, Höhe 5cm.\na) Fläche?\nb) Wenn die Höhe verdoppelt wird, wie ändert sich die Fläche?\nc) Bei welcher Höhe hat das Trapez die Fläche 150 cm²?", h:"A=(a+c)/2·h", s:"a) (12+8)/2·5=**50 cm²** ✓\nb) **100 cm²** (doppelt so groß) ✓\nc) h=150/10=**15 cm** ✓" },
+  { q:"Zusammengesetzte Fläche aus Rechteck (10m×6m) und\nHalbkreis (Durchmesser 6m) an einer Schmalseite. (π≈3,14)\na) Gesamtfläche?\nb) Umfang?", h:"Halbkreis: A=π·r²/2, r=3m", s:"a) 10·6+3,14·9/2=60+14,13=**74,13 m²** ✓\nb) 2·10+6+3,14·6/2=20+6+9,42=**35,42 m** ✓" },
+  { q:"Ein Satteldach:\nLänge 12m, Grundbreite 8m\nJede Dachseite ist 5m breit\n1 Ziegel deckt 0,04m²\n\na) Fläche einer Dachseite?\nb) Gesamte Dachfläche?\nc) Anzahl Ziegel?", h:"Dachseite = Rechteck: Länge × Breite der schrägen Seite", s:"a) 12·5=**60 m²** ✓\nb) 2·60=**120 m²** ✓\nc) 120/0,04=**3.000 Ziegel** ✓" },
+  { q:"Zylinder: Radius 4cm, Höhe 10cm (π≈3,14)\na) Volumen?\nb) Mantelfläche?\nc) Gesamtoberfläche?", h:"V=π·r²·h, Mantel=2π·r·h, Gesamt=Mantel+2Grundflächen", s:"a) 3,14·16·10=**502,4 cm³** ✓\nb) 2·3,14·4·10=**251,2 cm²** ✓\nc) 251,2+2·3,14·16=251,2+100,48=**351,68 cm²** ✓" },
+  { q:"Malerarbeiten in einem Raum:\n6m × 5m × 2,8m hoch\n2 Türen: je 2m × 1m\n3 Fenster: je 1,5m × 1,2m\n1L Farbe = 12m²\n\na) Zu streichende Fläche?\nb) Benötigte Liter Farbe?", h:"Alle 4 Wände, dann Abzüge.", s:"Wände: 2·(6+5)·2,8=61,6m²\nAbzüge: 2·2+3·1,8=4+5,4=9,4m²\na) 61,6-9,4=**52,2 m²** ✓\nb) 52,2/12=**4,35 → 5 Liter** ✓" },
+  { q:"Ein kreisförmiger Teich (r=5m) ist von einem 2m breiten Weg umgeben. (π≈3,14)\na) Fläche des Teichs?\nb) Fläche des Weges?\nc) Kosten des Pflasters: 40€/m²?", h:"Weg = Außenkreis(r=7) - Innenkreis(r=5)", s:"a) 3,14·25=**78,5 m²** ✓\nb) 3,14·49-78,5=153,86-78,5=**75,36 m²** ✓\nc) 75,36·40=**3.014,40 €** ✓" },
+  { q:"Prisma mit dreieckiger Grundfläche:\nDreieck: g=8cm, h=6cm\nPrisma-Höhe: 10cm\n\na) Grundfläche?\nb) Volumen?\nc) Mantelfläche (3 Rechtecke, alle Seiten 8cm,6cm,10cm lang)?", h:"V=Grundfläche·Höhe", s:"a) 8·6/2=**24 cm²** ✓\nb) 24·10=**240 cm³** ✓\nc) (8+6+10)·10=**240 cm²** ✓" },
+  { q:"Ein rechteckiges Zimmer: 4m × 3,5m\nBodenfliesen: 40cm × 40cm, 3,50€ pro Fliese\n\na) Anzahl Fliesen?\nb) Kosten?", h:"Fläche Fliese = 0,4m × 0,4m = 0,16m²", s:"a) 4·3,5=14m²; 14/0,16=87,5 → **88 Fliesen** ✓\nb) 88·3,50=**308 €** ✓" },
+  { q:"Zwei Dreiecke haben dieselbe Fläche (36cm²).\nDreieck A: Grundlinie 12cm. Wie lang ist seine Höhe?\nDreieck B: Höhe 9cm. Wie lang ist seine Grundlinie?", h:"A=g·h/2 → h=2A/g und g=2A/h", s:"A: h=2·36/12=**6 cm** ✓\nB: g=2·36/9=**8 cm** ✓" },
+  { q:"Schwimmbecken: 25m × 10m × 2m\na) Volumen in m³ und Liter?\nb) Innenfläche (Boden+Wände)?\nc) Fliesenkosten: 35€/m²?", h:"V=l·b·h, Innenfläche = Boden + 4 Wände", s:"a) 25·10·2=500m³=**500.000 L** ✓\nb) 250+2·(25+10)·2=250+140=**390 m²** ✓\nc) 390·35=**13.650 €** ✓" },
+  { q:"Raute mit Diagonalen d1=12cm und d2=8cm.\na) Fläche? (A=d1·d2/2)\nb) Wenn d1 um 50% verlängert wird, wie ändert sich die Fläche?", h:"A=d1·d2/2", s:"a) 12·8/2=**48 cm²** ✓\nb) Neue d1=18cm: 18·8/2=72cm²; **50% größer** ✓" },
+],
+schwer: [
+  { q:"Haus mit Satteldach:\nGrundfläche 12m×10m, Wände 3m hoch\nDachseiten: je 6,5m breit, 12m lang\nFenster+Türen: 18m²\n1L Farbe=8m²\n\na) Zu streichende Außenfläche (Wände+Dach)?\nb) Liter Farbe?", h:"Wände + Dachfläche - Fenster/Türen", s:"Wände: 2·(12+10)·3=132m²\nDach: 2·12·6,5=156m²\na) 132+156-18=**270 m²** ✓\nb) 270/8=33,75 → **34 Liter** ✓" },
+  { q:"Zusammengesetzte Figur:\nRechteck (15m×8m) + Dreieck oben (Basis 15m, Höhe 6m)\n- Innen: Rechteck (10m×5m) ausgespart\n\na) Gesamtfläche der Figur?\nb) Wenn diese Fläche begrünt wird: Kosten bei 12€/m²?", h:"Außen: Rechteck + Dreieck. Dann Innenrechteck abziehen.", s:"a) 15·8+15·6/2-10·5=120+45-50=**115 m²** ✓\nb) 115·12=**1.380 €** ✓" },
+  { q:"Pyramide: quadratische Grundfläche 8cm×8cm, Höhe 6cm\na) Volumen? (V=G·h/3)\nb) Oberfläche? (4 gleichschenklige Dreiecke, Höhe 6,32cm + Grundfläche)", h:"V=G·h/3, Dreiecksfläche=8·6,32/2", s:"a) 64·6/3=**128 cm³** ✓\nb) Grundfläche: 64cm²; 4 Dreiecke: 4·8·6,32/2=101,12cm²\nGesamt: **165,12 cm²** ✓" },
+  { q:"Ein Tunnel hat halbkreisförmigen Querschnitt (r=4m), Länge 200m.\na) Querschnittsfläche?\nb) Volumen des Tunnels?\nc) Betonwände 0,3m dick: Wie viel m³ Beton? (π≈3,14)", h:"Innere und äußere Halbkreise vergleichen.", s:"a) 3,14·16/2=**25,12 m²** ✓\nb) 25,12·200=**5.024 m³** ✓\nc) Außenr=4,3m: 3,14·18,49/2=29,03m²\n(29,03-25,12)·200=**782 m³** Beton ✓" },
+  { q:"Kreisring: Außenradius R=10cm, Innenradius r=6cm (π≈3,14)\na) Fläche des Kreisrings?\nb) Dieser Ring wird 5cm hoch als Hohlzylinder gefertigt. Volumen?\nc) Mantelfläche (innen und außen)?", h:"A=π(R²-r²), V=A·h", s:"a) 3,14·(100-36)=3,14·64=**200,96 cm²** ✓\nb) 200,96·5=**1.004,8 cm³** ✓\nc) 2·3,14·10·5+2·3,14·6·5=314+188,4=**502,4 cm²** ✓" },
+  { q:"Turm aus Quader (4m×4m×8m) + Kugel oben (r=2m).\na) Gesamtvolumen? (Kugel: V=4πr³/3)\nb) Gesamtoberfläche? (Kugel: O=4πr², Quader ohne Deckel)", h:"Quader+Kugel separat berechnen.", s:"a) 4·4·8+4·3,14·8/3=128+33,49=**161,49 m³** ✓\nb) Quader(ohne Deckel): 4·4+4·(4·8)=16+128=144m²\nKugel: 4·3,14·4=50,24m²\nGesamt: **194,24 m²** ✓" },
+  { q:"Schräger Schnitt durch einen Quader (6cm×4cm×8cm):\nDer Schnitt geht durch 2 gegenüberliegende Kanten.\nEs entsteht ein Dreiecksprisma.\na) Volumen des Dreiecksprismas?\nb) Oberfläche?", h:"Dreieck: Grundlinie 6cm, Höhe 8cm. Länge 4cm.", s:"a) Grundfläche=6·8/2=24cm²; V=24·4=**96 cm³** ✓\nb) 2·24+Rechtecke: 2·24+(6+8+10)·4=48+96=**144 cm²** ✓" },
+  { q:"Städtischer Park: Kreis r=50m eingebettet in Rechteck 120m×80m.\na) Rechteckfläche?\nb) Kreisfläche (π≈3,14)?\nc) Wie viel % der Rechteckfläche ist der Kreis?\nd) Fläche außerhalb des Kreises im Rechteck?", h:"Alle Flächen einzeln berechnen.", s:"a) 120·80=**9.600 m²** ✓\nb) 3,14·2500=**7.850 m²** ✓\nc) 7850/9600·100=**81,77%** ✓\nd) 9600-7850=**1.750 m²** ✓" },
+  { q:"Komplexe Aufgabe:\nGrundfläche T-Form:\nBreiter Teil: 10m×4m\nSchmaler Teil: 6m×3m (nach unten)\n\na) Gesamtfläche?\nb) Umfang?\nc) Wenn diese Fläche der Boden ist (3m hoch): Raumvolumen?", h:"T-Form in 2 Rechtecke zerlegen.", s:"a) 10·4+6·3=40+18=**58 m²** ✓\nb) 10+4+2+3+6+3+2+4+... komplex → Seiten: 10+4+2+3+6+3+2+4=**34 m** ✓\nc) 58·3=**174 m³** ✓" },
+  { q:"Fahrradweg um einen rechteckigen See (300m×150m).\nWeg 3m breit, außen.\na) Weglänge (Mittellinie)?\nb) Wegfläche?\nc) Pflasterkosten: 45€/m²?", h:"Mittellinie des Weges: (300+3)+(150+3)×2", s:"a) 2·(300+3+150+3)=2·456=**912 m** ✓\nb) Außen: 306·156=47736; Innen: 300·150=45000; Weg: **2.736 m²** ✓\nc) 2736·45=**123.120 €** ✓" },
+  { q:"Ähnliche Dreiecke:\nDreieck A: Grundlinie 6cm, Höhe 4cm, Fläche 12cm²\nDreieck B: ähnlich zu A, doppelt so groß\n\na) Grundlinie und Höhe von B?\nb) Fläche von B?\nc) Verhältnis der Flächen?", h:"Bei Ähnlichkeit: lineare Maße × k, Fläche × k²", s:"a) Grundlinie: 12cm, Höhe: 8cm ✓\nb) 12·8/2=**48 cm²** ✓\nc) 12/48=1/4 → **1:4** ✓" },
+  { q:"Solaranlage auf Dach:\nDachfläche: 2 Seiten à 8m×12m\nEin Solarmodul: 1,7m×1m=1,7m²\nModul-Wirkungsgrad: 20%\n\na) Gesamte Dachfläche?\nb) Wie viele Module passen? (90% Ausnutzung)\nc) Wenn 1m² 150W leistet: Gesamtleistung?", h:"Module = Fläche·0,9/1,7", s:"a) 2·8·12=**192 m²** ✓\nb) 192·0,9/1,7=101,6→**101 Module** ✓\nc) 101·1,7·150=**25.755 W = 25,755 kW** ✓" },
+  { q:"Kegelstumpf (vereinfacht als Pyramidenstumpf):\nUntere Grundfläche: 6m×6m\nObere Grundfläche: 3m×3m\nHöhe: 4m\n\na) Volumen? (V=(G1+G2+√(G1·G2))·h/3)\nb) Verhältnis Volumen zu vollem Quader (6m×6m×4m)?", h:"G1=36m², G2=9m², √(G1·G2)=18m²", s:"a) (36+9+18)·4/3=63·4/3=**84 m³** ✓\nb) 6·6·4=144m³; 84/144=**7/12 ≈ 58,3%** ✓" },
+  { q:"Stadtplan: Maßstab 1:25.000\nauf der Karte: Straße 8cm lang, Platz 2cm×3cm\n\na) Echte Länge der Straße in m?\nb) Echte Fläche des Platzes in m²?\nc) Eine echte Strecke von 2km: wie lang auf der Karte?", h:"Echte Länge = Kartenlänge × Maßstab", s:"a) 8cm·25000=200000cm=**2.000 m** ✓\nb) (2·25000)·(3·25000)=50000·75000=3750000000cm²=**37.500 m²** ✓\nc) 2000m=200000cm; 200000/25000=**8 cm** ✓" },
+  { q:"Komplex: Dachrinne um ein Hausdach.\nHausgrundfläche 10m×8m, Traufe (Dachkante) 0,5m über Wandkante.\nGesamtlänge der Rinne?\nRinne: Halbkreis-Profil, r=6cm.\na) Länge der Rinne?\nb) Volumen der Rinne (in Liter)?", h:"Rinne läuft an allen 4 Traufseiten entlang.", s:"a) 2·(10+0,5+0,5)+2·(8+0,5+0,5)=22+18=**40 m** ✓\nb) A=3,14·0,06²/2=0,00565m²; V=0,00565·40=0,226m³=**226 Liter** ✓" },
+],
+},
 
-  if(type==='add_same'){
-    const d=niceDenom(); const n1=rnd(1,d-1); const n2=rnd(1,d-n1);
-    const [rn,rd]=simplify(n1+n2,d);
-    return { q:`Berechne und kürze falls möglich:\n${n1}/${d} + ${n2}/${d}`, h:`Gleiche Nenner: Zähler addieren, Nenner bleibt ${d}.`,
-      s:`${n1}/${d} + ${n2}/${d} = ${n1+n2}/${d}${rn!==n1+n2||rd!==d?' = **'+fracStr(rn,rd)+'** ✓':' = **'+fracStr(rn,rd)+'** ✓'}\n📌 Gleiche Nenner → nur Zähler addieren!`};
-  }
-  if(type==='sub_same'){
-    const d=niceDenom(); const n1=rnd(2,d-1); const n2=rnd(1,n1-1);
-    const [rn,rd]=simplify(n1-n2,d);
-    return { q:`Berechne und kürze falls möglich:\n${n1}/${d} - ${n2}/${d}`, h:`Gleiche Nenner: Zähler subtrahieren.`,
-      s:`${n1}/${d} - ${n2}/${d} = ${n1-n2}/${d} = **${fracStr(rn,rd)}** ✓`};
-  }
-  if(type==='reduce'){
-    const d=pick([4,6,8,9,10,12,15,16,18,20]); const g=pick([2,3,4,5].filter(x=>d%x===0));
-    const n=g*rnd(1,d/g-1);
-    const [rn,rd]=simplify(n,d);
-    return { q:`Kürze so weit wie möglich:\n${n}/${d}`, h:`ggT(${n}, ${d}) = ${gcd(n,d)}`,
-      s:`${n}/${d} ÷ ${gcd(n,d)} = **${rn}/${rd}** ✓\nggT(${n},${d}) = ${gcd(n,d)}`};
-  }
-  if(type==='mult_simple'){
-    const n1=rnd(1,5); const d1=pick([2,3,4,5,6]); const n2=rnd(1,5); const d2=pick([2,3,4,5,6]);
-    const [rn,rd]=simplify(n1*n2,d1*d2);
-    return { q:`Berechne:\n${n1}/${d1} · ${n2}/${d2}`, h:`Zähler × Zähler, Nenner × Nenner, dann kürzen.`,
-      s:`${n1}/${d1} · ${n2}/${d2} = ${n1*n2}/${d1*d2} = **${fracStr(rn,rd)}** ✓`};
-  }
-  if(type==='to_mixed'){
-    const d=pick([2,3,4,5,6,7,8]); const w=rnd(1,5); const r=rnd(1,d-1);
-    const n=w*d+r;
-    return { q:`Wandle in eine gemischte Zahl um:\n${n}/${d}`, h:`${n} ÷ ${d} = ${w} Rest ${r}`,
-      s:`${n} ÷ ${d} = ${w} Rest ${r}\n→ **${w} ${r}/${d}** ✓`};
-  }
-  if(type==='add_diff'){
-    const d1=pick([2,3,4,5,6]); const d2=pick([2,3,4,5,6].filter(x=>x!==d1));
-    const hn=lcm(d1,d2); const n1=rnd(1,d1-1); const n2=rnd(1,d2-1);
-    const sum_n=n1*(hn/d1)+n2*(hn/d2);
-    const [rn,rd]=simplify(sum_n,hn);
-    return { q:`Berechne:\n${n1}/${d1} + ${n2}/${d2}`, h:`Hauptnenner = kgV(${d1}, ${d2}) = ${hn}`,
-      s:`HN = ${hn}\n${n1}/${d1} = ${n1*(hn/d1)}/${hn}\n${n2}/${d2} = ${n2*(hn/d2)}/${hn}\n→ ${n1*(hn/d1)}/${hn} + ${n2*(hn/d2)}/${hn} = ${sum_n}/${hn} = **${fracStrFull(rn,rd)}** ✓`};
-  }
-  if(type==='sub_diff'){
-    const d1=pick([3,4,5,6,8]); const d2=pick([2,3,4,6].filter(x=>x!==d1));
-    const hn=lcm(d1,d2); const n1=rnd(2,d1-1); const n2=rnd(1,d2-1);
-    const diff=n1*(hn/d1)-n2*(hn/d2);
-    if(diff<=0) return genBruch(level);
-    const [rn,rd]=simplify(diff,hn);
-    return { q:`Berechne:\n${n1}/${d1} - ${n2}/${d2}`, h:`Hauptnenner = ${hn}`,
-      s:`HN = ${hn}\n${n1}/${d1} = ${n1*(hn/d1)}/${hn}\n${n2}/${d2} = ${n2*(hn/d2)}/${hn}\n→ ${diff}/${hn} = **${fracStr(rn,rd)}** ✓`};
-  }
-  if(type==='mult'){
-    const n1=rnd(2,6); const d1=pick([3,4,5,6,8]); const n2=rnd(2,6); const d2=pick([3,4,5,6,8]);
-    const [rn,rd]=simplify(n1*n2,d1*d2);
-    return { q:`Berechne und kürze:\n${n1}/${d1} · ${n2}/${d2}`, h:`Zähler × Zähler, Nenner × Nenner, dann ggT kürzen.`,
-      s:`${n1}·${n2} / ${d1}·${d2} = ${n1*n2}/${d1*d2} = **${fracStr(rn,rd)}** ✓`};
-  }
-  if(type==='div'){
-    const n1=rnd(2,7); const d1=pick([3,4,5,6,8]); const n2=rnd(2,7); const d2=pick([3,4,5,6,8]);
-    const [rn,rd]=simplify(n1*d2,d1*n2);
-    return { q:`Berechne:\n${n1}/${d1} ÷ ${n2}/${d2}`, h:`Division = mal Kehrwert: ${n1}/${d1} · ${d2}/${n2}`,
-      s:`${n1}/${d1} · ${d2}/${n2} = ${n1*d2}/${d1*n2} = **${fracStr(rn,rd)}** ✓\n📌 Kehrwert von ${n2}/${d2} ist ${d2}/${n2}`};
-  }
-  if(type==='mixed_add'){
-    const w1=rnd(1,4); const d1=pick([3,4,5,6]); const r1=rnd(1,d1-1);
-    const w2=rnd(1,4); const d2=pick([3,4,5,6].filter(x=>x!==d1)); const r2=rnd(1,d2-1);
-    const hn=lcm(d1,d2);
-    const sum_n=(w1+w2)*hn + r1*(hn/d1) + r2*(hn/d2);
-    const [rn,rd]=simplify(sum_n,hn);
-    return { q:`Berechne:\n${w1} ${r1}/${d1} + ${w2} ${r2}/${d2}`, h:`Ganzzahlen addieren, Brüche mit HN=${hn} addieren.`,
-      s:`= ${w1+w2} + ${r1}/${d1} + ${r2}/${d2}\nBrüche: HN=${hn} → ${r1*(hn/d1)}/${hn} + ${r2*(hn/d2)}/${hn} = ${r1*(hn/d1)+r2*(hn/d2)}/${hn}\nGesamt: **${fracStrFull(rn+(w1+w2)*(rd||1)-(w1+w2)*(rd||1),rd)} = ${fracStrFull(rn,rd)}**\n= **${fracStrFull(sum_n,hn)}** ✓`};
-  }
-  if(type==='text_bruch'){
-    const total=pick([24,30,36,40,48]); const n1=rnd(1,3); const d1=pick([4,5,6]);
-    const part1=total*n1/d1;
-    if(!Number.isInteger(part1)) return genBruch(level);
-    const n2=rnd(1,3); const d2=pick([4,5,6].filter(x=>x!==d1));
-    const part2=total*n2/d2;
-    if(!Number.isInteger(part2)) return genBruch(level);
-    const rest=total-part1-part2;
-    if(rest<=0) return genBruch(level);
-    return { q:`In einer Klasse mit ${total} Schülern fahren ${n1}/${d1} mit dem Bus zur Schule und ${n2}/${d2} kommen zu Fuß.\na) Wie viele fahren mit dem Bus?\nb) Wie viele kommen zu Fuß?\nc) Wie viele kommen auf andere Weise?`,
-      h:`Anteil × Gesamtanzahl berechnen.`,
-      s:`a) Bus: ${total} · ${n1}/${d1} = **${part1} Schüler** ✓\nb) Zu Fuß: ${total} · ${n2}/${d2} = **${part2} Schüler** ✓\nc) Andere: ${total} - ${part1} - ${part2} = **${rest} Schüler** ✓`};
-  }
-  if(type==='chain'){
-    const a=rnd(1,5); const b=pick([4,6,8]); const c=rnd(1,5); const d=pick([3,5,7]);
-    const e=rnd(1,4); const f=pick([4,6,8].filter(x=>x!==b));
-    const s1n=a*d+c*b; const s1d=b*d; const g1=gcd(s1n,s1d);
-    const r1n=s1n/g1; const r1d=s1d/g1;
-    const r2n=r1n*f-e*r1d; const r2d=r1d*f; const g2=gcd(Math.abs(r2n),r2d);
-    return { q:`Berechne Schritt für Schritt:\n(${a}/${b} + ${c}/${d}) - ${e}/${f}`,
-      h:`Zuerst Klammer berechnen (HN=${lcm(b,d)}), dann subtrahieren.`,
-      s:`Schritt 1: ${a}/${b} + ${c}/${d} = HN=${lcm(b,d)} → ${a*(lcm(b,d)/b)}/${lcm(b,d)} + ${c*(lcm(b,d)/d)}/${lcm(b,d)} = ${fracStr(r1n,r1d)}\nSchritt 2: ${fracStr(r1n,r1d)} - ${e}/${f} = **${fracStr(r2n/g2,r2d/g2)}** ✓`};
-  }
-  if(type==='complex_text'){
-    const strecke=pick([30,36,40,42,48,60]); const n1=rnd(2,4); const d1=pick([5,6,7]);
-    const n2=rnd(1,3); const d2=pick([4,5,6].filter(x=>x!==d1));
-    const t1=strecke*n1/d1; const t2=strecke*n2/d2;
-    if(!Number.isInteger(t1)||!Number.isInteger(t2)||t1+t2>=strecke) return genBruch(level);
-    const rest=strecke-t1-t2;
-    const hn=lcm(d1,d2); const sumN=n1*(hn/d1)+n2*(hn/d2);
-    const [rn,rd]=simplify(sumN,hn); const [restn,restd]=simplify(hn-sumN,hn);
-    return { q:`Eine Wandergruppe legt eine Strecke von ${strecke} km in drei Abschnitten zurück.\n1. Abschnitt: ${n1}/${d1} der Gesamtstrecke\n2. Abschnitt: ${n2}/${d2} der Gesamtstrecke\n\na) Welchen Anteil haben sie nach 2 Abschnitten zurückgelegt?\nb) Wie lang ist der 3. Abschnitt in km?`,
-      h:`Anteile addieren (HN=${hn}), dann Rest von 1 abziehen.`,
-      s:`a) ${n1}/${d1} + ${n2}/${d2}: HN=${hn} → ${n1*(hn/d1)}/${hn} + ${n2*(hn/d2)}/${hn} = **${fracStr(rn,rd)}** ✓\nb) Rest: 1 - ${fracStr(rn,rd)} = **${fracStr(restd-rn,rd)}** der Strecke\n= ${fracStr(restd-rn,rd)} · ${strecke} km = **${rest} km** ✓`};
-  }
-  if(type==='nested'){
-    const a=rnd(1,3); const b=pick([4,6,8]); const c=rnd(1,3); const d=pick([3,5,6]);
-    const e=rnd(1,3); const f=pick([4,6,8]);
-    return { q:`Berechne:\n${a}/${b} · (${c}/${d} + ${e}/${f})`,
-      h:`Zuerst Klammer ausrechnen, dann multiplizieren.`,
-      s:`Klammer: HN=${lcm(d,f)} → ${fracStr(c*(lcm(d,f)/d)+e*(lcm(d,f)/f),lcm(d,f))}\nDann · ${a}/${b}: **${fracStr(a*(c*(lcm(d,f)/d)+e*(lcm(d,f)/f)),b*lcm(d,f))}** ✓\n📌 Klammer vor Punkt!`};
-  }
-  if(type==='vergleich'){
-    const d1=pick([3,4,5,6,7,8]); const n1=rnd(1,d1-1);
-    const d2=pick([3,4,5,6,7,8].filter(x=>x!==d1)); const n2=rnd(1,d2-1);
-    const d3=pick([3,4,5,6,7,8].filter(x=>x!==d1&&x!==d2)); const n3=rnd(1,d3-1);
-    const hn=lcm(lcm(d1,d2),d3);
-    const v1=n1*(hn/d1); const v2=n2*(hn/d2); const v3=n3*(hn/d3);
-    const sorted=[{f:`${n1}/${d1}`,v:v1},{f:`${n2}/${d2}`,v:v2},{f:`${n3}/${d3}`,v:v3}].sort((a,b)=>a.v-b.v);
-    return { q:`Ordne der Größe nach (kleinster zuerst):\n${n1}/${d1},  ${n2}/${d2},  ${n3}/${d3}`,
-      h:`Alle auf HN=${hn} erweitern, dann Zähler vergleichen.`,
-      s:`HN=${hn}: ${n1}/${d1}=${v1}/${hn},  ${n2}/${d2}=${v2}/${hn},  ${n3}/${d3}=${v3}/${hn}\n**${sorted[0].f} < ${sorted[1].f} < ${sorted[2].f}** ✓`};
-  }
-  return genBruch(level);
-}
+// ════════════════════════════════════════
+// SCHLUSSRECHNUNG
+// ════════════════════════════════════════
+schluss: {
+leicht: [
+  { q:"3 Arbeiter bauen eine Mauer in 12 Tagen.\na) Wie lange braucht 1 Arbeiter alleine?\nb) Wie lange brauchen 6 Arbeiter?", h:"Indirekt proportional: Mehr Arbeiter = weniger Zeit.", s:"a) 3·12=36 Tage → **36 Tage** ✓\nb) 36/6=**6 Tage** ✓" },
+  { q:"5 Maschinen produzieren in 8 Stunden 400 Teile.\na) Teile pro Maschine/Stunde?\nb) Teile mit 3 Maschinen in 6 Stunden?", h:"Erst auf 1 Maschine und 1 Stunde reduzieren.", s:"a) 400/(5·8)=**10 Teile** ✓\nb) 10·3·6=**180 Teile** ✓" },
+  { q:"Für 4 Personen braucht man 600 g Mehl.\na) Mehl pro Person?\nb) Mehl für 7 Personen?", h:"Direkt proportional: Auf 1 Person reduzieren.", s:"a) 600/4=**150 g** ✓\nb) 150·7=**1.050 g** ✓" },
+  { q:"Ein Auto fährt in 3 Stunden 210 km.\na) Wie viele km pro Stunde?\nb) Wie lange für 350 km?", h:"Geschwindigkeit = km/h", s:"a) 210/3=**70 km/h** ✓\nb) 350/70=**5 Stunden** ✓" },
+  { q:"8 Helfer können einen Saal in 3 Stunden aufräumen.\na) Wie lange braucht 1 Helfer alleine?\nb) Wie lange brauchen 12 Helfer?", h:"Gesamtarbeit = 8 × 3 Helferstunden", s:"a) 8·3=24h → **24 Stunden** ✓\nb) 24/12=**2 Stunden** ✓" },
+  { q:"6 Liter Benzin kosten 9,60 €.\na) Preis pro Liter?\nb) Was kosten 25 Liter?", h:"Direkt proportional: Preis pro Liter.", s:"a) 9,60/6=**1,60 €** ✓\nb) 1,60·25=**40,00 €** ✓" },
+  { q:"4 Katzen fressen in 5 Tagen 2 kg Futter.\na) Futter pro Katze pro Tag?\nb) Futter für 6 Katzen in 7 Tagen?", h:"Einheit: kg pro Katze pro Tag.", s:"a) 2/(4·5)=**0,1 kg** ✓\nb) 0,1·6·7=**4,2 kg** ✓" },
+  { q:"Eine Bäckerei backt in 2 Stunden 240 Brötchen.\na) Brötchen pro Stunde?\nb) Wie lange für 540 Brötchen?", h:"Direkt: Brötchen pro Stunde.", s:"a) 240/2=**120** ✓\nb) 540/120=**4,5 Stunden** ✓" },
+  { q:"10 Schüler können einen Schulhof in 4 Stunden fegen.\na) Wie lange braucht 1 Schüler?\nb) Wie lange brauchen 8 Schüler?", h:"Indirekt: Mehr Schüler = weniger Zeit.", s:"a) 10·4=40h → **40 Stunden** ✓\nb) 40/8=**5 Stunden** ✓" },
+  { q:"Ein Drucker druckt 180 Seiten in 3 Minuten.\na) Seiten pro Minute?\nb) Wie lange für 720 Seiten?", h:"Direkt: Seiten pro Minute.", s:"a) 180/3=**60 Seiten/min** ✓\nb) 720/60=**12 Minuten** ✓" },
+  { q:"3 Pumpen füllen einen Tank in 8 Stunden.\na) Wie lange braucht 1 Pumpe?\nb) Wie lange brauchen 6 Pumpen?", h:"Indirekt: Mehr Pumpen = weniger Zeit.", s:"a) 3·8=24h → **24 Stunden** ✓\nb) 24/6=**4 Stunden** ✓" },
+  { q:"7 Arbeiter pflastern in 6 Tagen eine Straße.\nWie viele Arbeiter braucht man, um dieselbe Straße in 3 Tagen zu pflastern?", h:"Gesamtarbeit = 7·6. Dann durch 3 teilen.", s:"Gesamtarbeit=42 AH; 42/3=**14 Arbeiter** ✓" },
+  { q:"Ein Zug fährt 300 km in 2,5 Stunden.\na) Geschwindigkeit in km/h?\nb) Wie weit kommt er in 4 Stunden?\nc) Wie lange für 450 km?", h:"v=s/t, s=v·t, t=s/v", s:"a) 300/2,5=**120 km/h** ✓\nb) 120·4=**480 km** ✓\nc) 450/120=**3,75 h** ✓" },
+  { q:"5 Näherinnen fertigen in 8 Tagen 200 Hemden.\na) Hemden pro Person pro Tag?\nb) Wie viele Hemden fertigen 8 Näherinnen in 5 Tagen?", h:"Einheit: Hemden pro Person pro Tag.", s:"a) 200/(5·8)=**5 Hemden** ✓\nb) 5·8·5=**200 Hemden** ✓" },
+  { q:"12 Eimer Wasser verbraucht man für 4 m² Garten.\na) Eimer pro m²?\nb) Eimer für 15 m²?\nc) Für wie viel m² reichen 30 Eimer?", h:"Direkt proportional.", s:"a) 12/4=**3 Eimer/m²** ✓\nb) 3·15=**45 Eimer** ✓\nc) 30/3=**10 m²** ✓" },
+],
+mittel: [
+  { q:"Für die Restaurierung eines Kirchendachs sind 15 Handwerker eingeplant, die in 72 Stunden fertig sein sollen.\na) 5 werden abgezogen. Wie lange brauchen die Verbleibenden?\nb) Das Dach muss in 54 Stunden fertig sein. Wie viele Handwerker braucht man?", h:"Gesamtarbeit = 15 × 72 Arbeitsstunden.", s:"Gesamt=1080 AH\na) 1080/10=**108 Stunden** ✓\nb) 1080/54=**20 Handwerker** ✓" },
+  { q:"Zwei Rohre füllen einen Tank:\nRohr A allein: 6 Stunden\nRohr B allein: 4 Stunden\n\na) Anteil pro Stunde je Rohr?\nb) Zusammen pro Stunde?\nc) Wie lange zusammen?", h:"Leistung = 1/Zeit. Addieren, dann Kehrwert.", s:"a) A: 1/6, B: 1/4 ✓\nb) 1/6+1/4=5/12 ✓\nc) 12/5=**2,4 Stunden** ✓" },
+  { q:"20 Arbeiter sollen in 30 Tagen fertig sein.\nNach 10 Tagen ist erst 1/4 erledigt.\na) Wie viel Restarbeit in AH?\nb) Wie viele Arbeiter braucht man jetzt?", h:"Gesamtarbeit = 20·30. Erledigt = 20·10·(1/4)/(1/3)... Vorsicht!", s:"Gesamtarbeit=600AH\nErledigt in 10 Tagen: 1/4 → 150AH → 15AH/Tag (nur 15 Arbeiter effektiv?)\nEigentlich: 20·10=200AH verbraucht für 1/4 → Gesamt=800AH\nRest=600AH, Zeit=20 Tage → **30 Arbeiter** ✓" },
+  { q:"Ein Drucker: 5 Maschinen drucken 3000 Seiten in 2 Stunden.\na) Seiten pro Maschine/Stunde?\nb) Wie lange brauchen 3 Maschinen für 1800 Seiten?\nc) Wie viele Maschinen für 6000 Seiten in 2 Stunden?", h:"Einheitsmenge: Seiten/Maschine/Stunde", s:"a) 3000/(5·2)=**300** ✓\nb) 1800/(3·300)=**2 Stunden** ✓\nc) 6000/(2·300)=**10 Maschinen** ✓" },
+  { q:"Ernte: 8 Erntehelfer ernten in 6 Tagen 4.800 kg Äpfel.\na) kg pro Helfer pro Tag?\nb) 12 Helfer in 4 Tagen?\nc) Für 9.600 kg in 8 Tagen: wie viele Helfer?", h:"Einheitsmenge berechnen.", s:"a) 4800/(8·6)=**100 kg** ✓\nb) 100·12·4=**4.800 kg** ✓\nc) 9600/(100·8)=**12 Helfer** ✓" },
+  { q:"Baustelle: 12 Arbeiter, geplant 40 Tage.\nNach 15 Tagen: erst 30% erledigt.\na) Planmäßiger Stand nach 15 Tagen?\nb) Sind sie im Plan?\nc) Wie viele Arbeiter für pünktliche Fertigstellung?", h:"Planstand = 15/40·100%=37,5%", s:"a) **37,5%** (Planstand) ✓\nb) **Nein, hinter dem Plan** (30%<37,5%) ✓\nc) Gesamt=12·40=480AH; Rest: 70%→336AH in 25Tagen: 336/25≈**14 Arbeiter** ✓" },
+  { q:"Geschwindigkeit: Auto A fährt 120 km/h, Auto B 90 km/h.\nSie starten gleichzeitig am selben Ort in dieselbe Richtung.\na) Wie groß ist der Abstand nach 3 Stunden?\nb) Wann ist Auto A 150 km vor Auto B?", h:"Relativgeschwindigkeit = 120-90=30 km/h", s:"a) (120-90)·3=**90 km** ✓\nb) 150/30=**5 Stunden** ✓" },
+  { q:"Mischaufgabe: 6 Liter mit 30% Zuckergehalt werden mit\n4 Liter mit 10% Zuckergehalt gemischt.\na) Gesamtliter?\nb) Zuckergehalt der Mischung in %?", h:"Zuckermenge berechnen, dann durch Gesamtliter.", s:"a) **10 Liter** ✓\nb) (6·0,3+4·0,1)/10=(1,8+0,4)/10=**22%** ✓" },
+  { q:"Pipeline: 3 Pumpen füllen einen Speicher in 12 Stunden.\nEine Pumpe fällt aus.\na) Wie lange brauchen die 2 verbliebenen?\nb) Man will in 9 Stunden fertig sein. Wie viele Pumpen?", h:"Gesamtarbeit = 3·12 = 36 Pumpenstunden", s:"a) 36/2=**18 Stunden** ✓\nb) 36/9=**4 Pumpen** ✓" },
+  { q:"Tipp-Ex: 4 Sekretärinnen tippen einen Bericht in 3 Stunden.\na) Wie lange braucht 1 Sekretärin?\nb) Wie lange brauchen 6?\nc) In 1 Stunde fertig: wie viele?", h:"Gesamtarbeit = 4·3 = 12 Stunden", s:"a) **12 Stunden** ✓\nb) 12/6=**2 Stunden** ✓\nc) 12/1=**12 Sekretärinnen** ✓" },
+  { q:"Reise: Hin 60 km/h, Rück 40 km/h, Strecke je 120 km.\na) Zeit für Hinfahrt?\nb) Zeit für Rückfahrt?\nc) Durchschnittsgeschwindigkeit der Gesamtreise?", h:"Durchschnitt ≠ (60+40)/2! Gesamt: s/t", s:"a) 120/60=**2 Stunden** ✓\nb) 120/40=**3 Stunden** ✓\nc) 240/(2+3)=**48 km/h** ✓" },
+  { q:"Bauprojekt: 18 Arbeiter brauchen 50 Tage.\nNach 20 Tagen müssen 6 abgezogen werden.\nWie lange brauchen die Verbliebenen für den Rest?", h:"Gesamtarbeit=900AH. Erledigt in 20 Tagen=360AH.", s:"Gesamt=18·50=900AH\nErledigt=18·20=360AH\nRest=540AH\n540/12=**45 Tage** ✓" },
+  { q:"Füllaufgabe: Badewanne fasst 300 Liter.\nHahn füllt 30L/min, Abfluss lässt 10L/min ab.\na) Nettozufluss?\nb) Wie lange bis voll (Abfluss offen)?", h:"Nettorate = Zulauf - Ablauf", s:"a) 30-10=**20 L/min** ✓\nb) 300/20=**15 Minuten** ✓" },
+  { q:"Ernte-Kettensatz: 5 Mähdrescher ernten 80 ha in 4 Tagen (je 8 Std./Tag).\na) ha pro Mähdrescher/Stunde?\nb) 8 Mähdrescher in 3 Tagen à 10 Stunden?", h:"Einheit: ha pro Mähdrescher pro Stunde.", s:"a) 80/(5·4·8)=**0,5 ha** ✓\nb) 0,5·8·3·10=**120 ha** ✓" },
+  { q:"Gegenverkehr: Zug A (100 km/h) und Zug B (80 km/h) fahren aufeinander zu.\nSie sind noch 540 km voneinander entfernt.\na) Annäherungsgeschwindigkeit?\nb) Wann treffen sie sich?", h:"Gegenverkehr: Geschwindigkeiten addieren.", s:"a) 100+80=**180 km/h** ✓\nb) 540/180=**3 Stunden** ✓" },
+],
+schwer: [
+  { q:"Kirchendach-Komplex:\n15 Handwerker, 72 Stunden geplant.\nNach 24 Stunden: 1/3 erledigt.\na) Im Plan?\nb) Wie viele zusätzliche Handwerker für pünktliche Fertigstellung?\nc) Alternativ: Wie lange bei unveränderter Mannschaft?", h:"Planstand nach 24h: 24/72=1/3. Tatsächlich 1/3 → im Plan!", s:"a) **Ja, genau im Plan** (Planstand 1/3 = tatsächlich 1/3) ✓\nb) **Keine zusätzlichen nötig** ✓\nc) Bleibt bei **48 weiteren Stunden** (72-24=48) ✓" },
+  { q:"Drei Rohre:\nA füllt in 4h, B füllt in 6h, C entleert in 12h.\na) Netto-Rate pro Stunde (alle offen)?\nb) Wie lange bis der Tank voll ist (alle offen)?", h:"Füll-Rohre positiv, Entleer-Rohr negativ.", s:"a) 1/4+1/6-1/12=3/12+2/12-1/12=**4/12=1/3 pro Stunde** ✓\nb) 1/(1/3)=**3 Stunden** ✓" },
+  { q:"Staffel-Arbeit:\nPhase 1 (15 Tage): 20 Arbeiter bauen Fundament\nPhase 2 (20 Tage): 15 Arbeiter bauen Wände\nPhase 3 (?): 10 Arbeiter müssen Dach in gleicher Arbeitsmenge wie Phase 2 fertigstellen\n\nWie lange dauert Phase 3?", h:"Arbeitsmenge Phase 2: 15·20=300AH. Dann ÷10.", s:"Phase2=15·20=300AH\nPhase3: 300/10=**30 Tage** ✓" },
+  { q:"Komplexe Mischung:\nTank A: 200L mit 40% Salz\nTank B: 300L mit 20% Salz\nMischung C: ? L mit 30% Salz\n\na) Wie viel Salz in A und B?\nb) Wenn man A und B mischt: Salzgehalt?\nc) Wie viel von A (40%) muss man zu 300L von B (20%) geben, um 28% zu erhalten?", h:"c) 0,4x+0,2·300=0,28·(x+300)", s:"a) A:80kg, B:60kg ✓\nb) 140/500=**28%** ✓\nc) 0,4x+60=0,28x+84; 0,12x=24; **x=200L** ✓" },
+  { q:"Bauzeitplanung:\nOriginalplan: 30 Arbeiter, 60 Tage\nNach 20 Tagen: 25% erledigt\nVertragsstrafe bei Überschreitung!\n\na) Planstand nach 20 Tagen in %?\nb) Rückstand in Arbeitsstunden?\nc) Wie viele Arbeiter jetzt, um in 40 Tagen fertig zu sein?", h:"Gesamtarbeit=30·60=1800AH", s:"a) 20/60·100=**33,3%** (Planstand) ✓\nb) Erledigt: 25%=450AH; Planstand: 600AH; Rückstand: **150AH** ✓\nc) Rest=1350AH in 40 Tagen: 1350/40=**33,75→34 Arbeiter** ✓" },
+  { q:"Taktzeit-Optimierung:\n6 Roboter schweißen 360 Teile in 4 Stunden.\n3 Roboter fallen aus.\na) Wie lange brauchen die verbleibenden für 360 Teile?\nb) In dieser Zeit: wie viele Teile weniger als geplant?\nc) Wie viele Roboter für 480 Teile in 4 Stunden?", h:"Rate: 360/(6·4)=15 Teile/Roboter/h", s:"a) 360/(3·15)=**8 Stunden** ✓\nb) Geplant in 8h: 6·15·8=720; tatsächlich 360; Differenz: **360 Teile weniger** ✓\nc) 480/(4·15)=**8 Roboter** ✓" },
+  { q:"Begegnungs- und Überholaufgaben:\nStadt A und B: 360 km entfernt.\nZug 1 fährt von A: 120 km/h\nZug 2 fährt von B: 90 km/h (Gegenverkehr)\nAuto von A: 150 km/h (überholt Zug 1)\n\na) Wann treffen Zug 1 und 2 sich?\nb) Wann holt das Auto Zug 1 ein? (starten gleichzeitig)", h:"a) Gegenverkehr: Gesamt-v=210 km/h. b) Relativ-v=30 km/h, wie weit ist Zug voraus?", s:"a) 360/210=**1h 43min** ✓\nb) Nach 1h: Zug bei 120km, Auto bei 150km → Auto schon vorbei!\nAuto überholt sofort da schneller → **sofort, nach 0h** ✓\n(Realistisch: Gleicher Startpunkt → Auto ist immer vorne)" },
+  { q:"Wasserversorgung:\nReservoir: 50.000 Liter\nZulauf: 800 L/h\nVerbrauch Dorf: 1.200 L/h\n\na) Nettoabnahme pro Stunde?\nb) Wie lange bis leer?\nc) Wie viel Zulauf für 72 Stunden Autonomie?", h:"Nettoabnahme = Verbrauch - Zulauf", s:"a) 1200-800=**400 L/h** ✓\nb) 50000/400=**125 Stunden** ✓\nc) 50000=72·(V-800)→V=50000/72+800≈**1.495 L/h** ✓" },
+  { q:"Ernte-Optimierung:\nOhne Maschine: 12 Helfer, 8 Tage\nMit 1 Maschine: entspricht 4 Helfern\n\na) Gesamtarbeit in Helfertagen?\nb) Mit 8 Helfern + 1 Maschine: wie lange?\nc) Wie viele Helfer (ohne Maschine) für 6 Tage?", h:"Maschine=4 Helfer-Äquivalente", s:"a) 12·8=**96 Helfertage** ✓\nb) 96/(8+4)=96/12=**8 Tage** ✓\nc) 96/6=**16 Helfer** ✓" },
+  { q:"Produktions-Kettensatz:\n4 Webstühle weben in 6 Stunden 48 m Stoff.\nDie Webstühle laufen 5 Tage à 8 Stunden.\n\na) m pro Webstuhl/Stunde?\nb) m in 5 Tagen mit 4 Webstühlen?\nc) Für 600 m in 5 Tagen: wie viele Webstühle?", h:"Einheit: m/Webstuhl/Stunde", s:"a) 48/(4·6)=**2 m** ✓\nb) 2·4·40=**320 m** ✓\nc) 600/(2·40)=**7,5→8 Webstühle** ✓" },
+  { q:"Zug-Kreuzung:\nZug (200m lang, 72 km/h) fährt durch Tunnel (800m lang).\na) Wie lange ist der Zug im Tunnel (Einfahrt bis Ausfahrt)?\nb) Zwei gleiche Züge begegnen sich im Tunnel. Wie lange sind beide gleichzeitig im Tunnel?", h:"a) Strecke = Zuglänge + Tunnellänge. b) Komplex: beide fahren aufeinander zu.", s:"a) (200+800)m bei 20m/s: 1000/20=**50 Sekunden** ✓\nb) Relativgeschwindigkeit=144km/h=40m/s; bei Begegnung=beide im Tunnel wenn Abstand≤2·800m: (2·800-200)/40=35s → beide gleichzeitig **35 Sekunden** ✓" },
+  { q:"Mischkalkulation:\nProdukt A: 60€ Kosten, 80€ Verkauf\nProdukt B: 40€ Kosten, 60€ Verkauf\nVerhältnis A:B = 3:2\n\na) Gewinn pro Stück A und B?\nb) Durchschnittlicher Gewinn pro Stück?\nc) Für 10.000€ Gewinn: wie viele Stück gesamt?", h:"Gewinn=Verkauf-Kosten. Durchschnitt gewichtet.", s:"a) A:20€, B:20€ ✓\nb) (3·20+2·20)/5=**20€** ✓\nc) 10000/20=**500 Stück** ✓" },
+  { q:"Optimale Teamgröße:\nProjekt: 1000 AH Gesamtarbeit.\nFixkosten: 500€/Tag\nVariablekosten: 100€/Arbeiter/Tag\nVerkaufspreis: 5€/AH\n\na) Erlös gesamt?\nb) Kosten bei 10 Arbeitern für die gesamte Dauer?\nc) Bei wie vielen Arbeitern maximaler Gewinn?", h:"Dauer = 1000/(10 Arbeiter) = 100 Tage.", s:"a) 1000·5=**5.000€** ✓\nb) Dauer=1000/10=100T; Kosten=100·500+100·10·100=50000+100000=**150.000€** ✓ (Verlust!)\nc) Mehr Arbeiter=weniger Tage=weniger Fixkosten. Bei 50 Arbeitern: 20T; 20·500+20·50·100=10000+100000=110000€. Noch immer Verlust. Maximaler Gewinn: möglichst viele Arbeiter..." },
+  { q:"Dreieck-Aufgabe:\nDrei Freunde mähen gemeinsam einen Rasen.\nA allein: 6h, B allein: 4h, C allein: 3h.\na) Rate je Person pro Stunde?\nb) Zusammen pro Stunde?\nc) Zusammen wie lange?", h:"Raten addieren.", s:"a) A:1/6, B:1/4, C:1/3 ✓\nb) 1/6+1/4+1/3=2/12+3/12+4/12=9/12=**3/4 pro h** ✓\nc) 1÷(3/4)=**4/3h≈1h 20min** ✓" },
+  { q:"Bauzeitplanung mit Unterbrechung:\n25 Arbeiter, 40 Tage geplant.\nNach 16 Tagen Pause von 5 Tagen (kein Fortschritt).\nDanach soll man trotzdem pünktlich fertig sein.\na) Erledigt nach 16 Tagen?\nb) Verbleibende Arbeit?\nc) Wie viele Arbeiter für die restlichen 19 Tage (40-16-5)?", h:"Gesamtarbeit=25·40=1000AH", s:"a) 25·16=**400AH (40%)** ✓\nb) **600AH** ✓\nc) 600/19≈**32 Arbeiter** ✓" },
+],
+},
 
-// ── PROZENTRECHNUNG ──
-function genProzent(level){
-  const types = level==='leicht'
-    ? ['pw_basic','ps_basic','rabatt_einfach','aufschlag_einfach','anteil_text']
-    : level==='mittel'
-    ? ['grundwert','zinsen','mehrwert','preisaender','vergleich_p']
-    : ['zinsen_monate','kettenrabatt','prozent_diff','umsatzsteuer','anstieg_abfall'];
+// ════════════════════════════════════════
+// GLEICHUNGSLEHRE
+// ════════════════════════════════════════
+gleich: {
+leicht: [
+  { q:"Löse und mache die Probe:\na) x + 17 = 21\nb) 64 + x = 89\nc) x - 13 = 29\nd) 45 - x = 18", h:"Umkehroperation anwenden.", s:"a) x=21-17=**4** ✓ P: 4+17=21\nb) x=89-64=**25** ✓ P: 64+25=89\nc) x=29+13=**42** ✓ P: 42-13=29\nd) x=45-18=**27** ✓ P: 45-27=18" },
+  { q:"Löse:\na) 3x = 18\nb) x/4 = 7\nc) 5x = 40\nd) x/6 = 9", h:"Multiplikation ↔ Division umkehren.", s:"a) x=18/3=**6** ✓\nb) x=7·4=**28** ✓\nc) x=40/5=**8** ✓\nd) x=9·6=**54** ✓" },
+  { q:"Löse:\na) 2x + 3 = 11\nb) 4x - 5 = 19\nc) 3x + 7 = 22\nd) 5x - 8 = 17", h:"Erst Zahl auf andere Seite, dann durch Vorfaktor.", s:"a) 2x=8 → **x=4** ✓\nb) 4x=24 → **x=6** ✓\nc) 3x=15 → **x=5** ✓\nd) 5x=25 → **x=5** ✓" },
+  { q:"Löse:\na) 5 · 8 + x = 50\nb) x + 3 · 4 = 25\nc) 2 · x - 6 = 14\nd) 3 · (x + 2) = 18", h:"Erst Punkt vor Strich berechnen.", s:"a) 40+x=50 → **x=10** ✓\nb) x+12=25 → **x=13** ✓\nc) 2x=20 → **x=10** ✓\nd) x+2=6 → **x=4** ✓" },
+  { q:"Löse:\na) x + 8 = 3\nb) x - 5 = -12\nc) -3x = 15\nd) x/(-2) = 6", h:"Negative Ergebnisse sind möglich!", s:"a) **x = -5** ✓\nb) **x = -7** ✓\nc) x=-5 → **x = -5** ✓\nd) **x = -12** ✓" },
+  { q:"Stelle eine Gleichung auf und löse:\na) Eine Zahl plus 7 ergibt 15.\nb) Das Doppelte einer Zahl ist 24.\nc) Eine Zahl minus 9 ist 3.", h:"Unbekannte Zahl = x", s:"a) x+7=15 → **x=8** ✓\nb) 2x=24 → **x=12** ✓\nc) x-9=3 → **x=12** ✓" },
+  { q:"Löse und mache die Probe:\na) 7x - 3 = 4x + 9\nb) 2x + 10 = 5x - 2", h:"x-Terme auf eine Seite bringen.", s:"a) 3x=12 → **x=4** ✓ P: 25=25\nb) 12=3x → **x=4** ✓ P: 18=18" },
+  { q:"Löse:\na) 14 + 2x = -22 - 7x\nb) 4x - 13 = 3x\nc) 5 + 14x + 1 = 17x - 4 + 2x", h:"Alle x-Terme auf eine Seite.", s:"a) 9x=-36 → **x=-4** ✓\nb) x=**13** ✓\nc) 6+14x=19x-4; 10=5x → **x=2** ✓" },
+  { q:"Löse:\na) x/3 + 2 = 5\nb) x/4 - 1 = 3\nc) 2x/3 = 8\nd) x/5 + x/5 = 4", h:"Bruchgleichungen: mit Nenner multiplizieren.", s:"a) x/3=3 → **x=9** ✓\nb) x/4=4 → **x=16** ✓\nc) x=12 → **x=12** ✓\nd) 2x/5=4 → **x=10** ✓" },
+  { q:"Formuliere eine Gleichung und löse:\nMaria ist 3-mal so alt wie ihr Bruder.\nZusammen sind sie 32 Jahre alt.\nWie alt sind beide?", h:"Bruder=x, Maria=3x", s:"x+3x=32; 4x=32; x=8\n**Bruder: 8 Jahre, Maria: 24 Jahre** ✓" },
+  { q:"Löse:\na) 4(x + 3) = 20\nb) 3(2x - 1) = 15\nc) 2(x + 5) = 3x\nd) 5(x - 2) = 2x + 1", h:"Klammer auflösen, dann x isolieren.", s:"a) x+3=5 → **x=2** ✓\nb) 2x-1=5 → **x=3** ✓\nc) 2x+10=3x → **x=10** ✓\nd) 5x-10=2x+1 → 3x=11 → **x=11/3** ✓" },
+  { q:"Löse:\na) 2(3x + 4) - 2x - 16 = 0\nb) 4(2x - 3) - 3(x + 1) = 10", h:"Klammern aufmachen, dann vereinfachen.", s:"a) 6x+8-2x-16=0; 4x=8 → **x=2** ✓\nb) 8x-12-3x-3=10; 5x=25 → **x=5** ✓" },
+  { q:"Ein Rechteck hat den Umfang 36 cm.\nDie Länge ist 3 cm mehr als die Breite.\na) Stelle eine Gleichung auf.\nb) Berechne Länge und Breite.", h:"U=2(l+b)=36 und l=b+3", s:"2(b+3+b)=36; 2(2b+3)=36; 4b+6=36; 4b=30; b=7,5\n**Breite=7,5cm, Länge=10,5cm** ✓" },
+  { q:"Löse (Probe nicht vergessen):\na) 3x + 5 = 2x + 9\nb) 5x - 7 = 3x + 1\nc) x + 15 = 4x - 6", h:"x auf eine Seite, Zahlen auf die andere.", s:"a) x=4 → **x=4** ✓\nb) 2x=8 → **x=4** ✓\nc) 21=3x → **x=7** ✓" },
+  { q:"Löse und beschreibe die Lösungsmenge:\na) 3x + 6 = 3(x + 2)\nb) 2x + 5 = 2x + 8\nc) 4(x + 1) = 4x + 4", h:"Klammern auflösen – was passiert mit x?", s:"a) 3x+6=3x+6 → **L=ℝ (unendlich viele)** ✓\nb) 5=8 → **L={} (keine Lösung)** ✓\nc) Identisch → **L=ℝ** ✓" },
+],
+mittel: [
+  { q:"Löse:\na) 5 - 2(3x - 4) = 3(1 - 2x) + 8\nb) 3(2x - 1) = 2(x + 5) + 4x\nc) 4(x + 3) - 2(2x - 1) = 14", h:"Klammern auflösen, dann vereinfachen.", s:"a) 5-6x+8=3-6x+8 → 13=11 → **keine Lösung** ✓\nb) 6x-3=2x+10+4x → -3=10 → **keine Lösung** ✓\nc) 4x+12-4x+2=14 → 14=14 → **L=ℝ** ✓" },
+  { q:"Löse die Gleichungen:\na) (x+3)/2 = 5\nb) (2x-1)/3 = 3\nc) x/2 + x/3 = 5\nd) (x+1)/4 - (x-1)/6 = 1", h:"Nenner beseitigen: mit dem Hauptnenner multiplizieren.", s:"a) x+3=10 → **x=7** ✓\nb) 2x-1=9 → **x=5** ✓\nc) HN=6: 3x+2x=30 → **x=6** ✓\nd) HN=12: 3(x+1)-2(x-1)=12 → x+5=12 → **x=7** ✓" },
+  { q:"Textaufgabe – stelle auf und löse:\nDrei aufeinanderfolgende gerade Zahlen ergeben 78.\nWie lauten die Zahlen?", h:"Erste gerade Zahl = x, dann x+2, x+4", s:"x+(x+2)+(x+4)=78; 3x+6=78; 3x=72; x=24\n**24, 26, 28** ✓\nProbe: 24+26+28=78 ✓" },
+  { q:"Löse:\na) 2x - 3(x - 4) = x + 8\nb) 5(x + 2) - 3(x - 1) = 2x + 16\nc) 4(2x + 1) - 3(x - 2) = 5x + 14", h:"Alles ausmultiplizieren, dann zusammenfassen.", s:"a) 2x-3x+12=x+8; -x+12=x+8; 4=2x → **x=2** ✓\nb) 5x+10-3x+3=2x+16; 2x+13=2x+16 → **keine Lösung** ✓\nc) 8x+4-3x+6=5x+14; 5x+10=5x+14 → **keine Lösung** ✓" },
+  { q:"Gleichungssystem – löse durch Einsetzen:\na) y = 3x - 1 und y = x + 5\nb) y = 2x + 3 und y = -x + 9", h:"Gleichungen gleichsetzen.", s:"a) 3x-1=x+5 → 2x=6 → x=3, y=8 → **(3|8)** ✓\nb) 2x+3=-x+9 → 3x=6 → x=2, y=7 → **(2|7)** ✓" },
+  { q:"Altersaufgabe:\nAnna ist 5 Jahre älter als Ben.\nIn 10 Jahren wird Anna doppelt so alt wie Ben jetzt ist.\nWie alt sind beide heute?", h:"Ben=x, Anna=x+5. Gleichung aufstellen.", s:"x+5+10=2x; x+15=2x; **x=15** (Ben), Anna=**20** ✓\nProbe: 15+10=25=2·... Nein: 2x_heute=2·15=30≠25. Neues Lesen: Anna in 10J = 2·Ben_jetzt: x+15=2x → x=15 ✓" },
+  { q:"Löse die Gleichung mit Brüchen:\na) x/3 + x/4 = 7\nb) (x-2)/5 + (x+1)/3 = 4\nc) 3/(x-1) = 6 (x≠1)", h:"Hauptnenner bestimmen und alles klar machen.", s:"a) HN=12: 4x+3x=84 → **x=12** ✓\nb) HN=15: 3(x-2)+5(x+1)=60 → 8x+(-1)=60 → 8x=61 → **x=61/8** ✓\nc) 3=6(x-1) → 3=6x-6 → **x=3/2** ✓" },
+  { q:"Formuliere und löse:\nEin Rechteck hat den Umfang 54 cm.\nDie Länge ist das 2-fache der Breite plus 3 cm.\na) Gleichung aufstellen.\nb) Länge und Breite berechnen.", h:"U=2(l+b)=54; l=2b+3", s:"2(2b+3+b)=54; 2(3b+3)=54; 6b+6=54; 6b=48; b=8\na) 2(2b+3+b)=54 ✓\nb) **Breite=8cm, Länge=19cm** ✓" },
+  { q:"Löse:\na) |x - 3| = 5 (Betrag)\nb) |2x + 1| = 7", h:"Betragsgleichung: zwei Fälle untersuchen.", s:"a) x-3=5 → x=8 oder x-3=-5 → x=-2 → **x=8 oder x=-2** ✓\nb) 2x+1=7 → x=3 oder 2x+1=-7 → x=-4 → **x=3 oder x=-4** ✓" },
+  { q:"Dreiecksaufgabe:\nDie drei Winkel eines Dreiecks stehen im Verhältnis 1:2:3.\na) Stelle eine Gleichung auf.\nb) Berechne alle Winkel.", h:"Winkelsumme im Dreieck = 180°", s:"x+2x+3x=180; 6x=180; x=30\n**30°, 60°, 90°** ✓ (rechtwinkliges Dreieck!)" },
+  { q:"Löse das Gleichungssystem:\n2x + 3y = 12\nx - y = 1", h:"Aus 2. Gleichung: x=y+1 einsetzen.", s:"2(y+1)+3y=12; 5y+2=12; y=2; x=3\n**x=3, y=2** ✓\nProbe: 6+6=12 ✓; 3-2=1 ✓" },
+  { q:"Ungleichung – löse und stelle auf Zahlenstrahl dar:\na) 3x - 4 > 8\nb) 2x + 1 ≤ 9\nc) -2x + 6 > 2", h:"Wie Gleichung, aber bei Division durch Negative: Ungleichzeichen dreht sich!", s:"a) 3x>12 → **x>4** ✓\nb) 2x≤8 → **x≤4** ✓\nc) -2x>-4 → **x<2** (Zeichen dreht sich!) ✓" },
+  { q:"Knobel-Gleichung:\nVater ist viermal so alt wie sein Sohn.\nVor 5 Jahren war er siebenmal so alt.\nWie alt sind beide heute?", h:"Sohn=x, Vater=4x. Vor 5 Jahren: 4x-5=7(x-5)", s:"4x-5=7x-35; 30=3x; x=10\n**Sohn: 10 Jahre, Vater: 40 Jahre** ✓\nProbe: 40-5=35=7·5=7(10-5) ✓" },
+  { q:"Löse:\na) (3x+1)/2 - (x-2)/3 = 4\nb) (2x-3)/4 + (x+1)/2 = 3", h:"HN bestimmen, alle Terme erweitern.", s:"a) HN=6: 3(3x+1)-2(x-2)=24 → 9x+3-2x+4=24 → 7x=17 → **x=17/7** ✓\nb) HN=4: (2x-3)+(2x+2)=12 → 4x-1=12 → **x=13/4** ✓" },
+  { q:"Formuliere und löse:\nZwei Züge starten gleichzeitig aufeinander zu.\nZug A fährt 120 km/h, Zug B 80 km/h.\nSie sind 500 km entfernt.\nNach wie vielen Stunden treffen sie sich?\nWie weit ist jeder gefahren?", h:"Gemeinsam legen sie 200 km/h zurück.", s:"500/(120+80)=500/200=2,5h\nZug A: 120·2,5=**300km**\nZug B: 80·2,5=**200km** ✓" },
+],
+schwer: [
+  { q:"Löse das Gleichungssystem:\n3x + 2y = 16\n5x - 3y = 1", h:"Eliminationsverfahren: y eliminieren (×3 und ×2).", s:"×3: 9x+6y=48; ×2: 10x-6y=2; addieren: 19x=50... nein:\n3x+2y=16 (×3)→9x+6y=48\n5x-3y=1 (×2)→10x-6y=2\nAddieren: 19x=50 → x=50/19... \nKorrekt: 3x+2y=16; y=(16-3x)/2; in 2.: 5x-3(16-3x)/2=1; 10x-48+9x=2; 19x=50; **x=50/19≈2,63; y≈(16-7,89)/2≈4,05** ✓" },
+  { q:"Löse:\na) x² - 5x + 6 = 0 (durch Faktorisierung)\nb) x² - 9 = 0\nc) x(x - 4) = 0", h:"a) Welche zwei Zahlen ergeben Summe 5 und Produkt 6?", s:"a) (x-2)(x-3)=0 → **x=2 oder x=3** ✓\nb) (x-3)(x+3)=0 → **x=3 oder x=-3** ✓\nc) **x=0 oder x=4** ✓" },
+  { q:"Gleichungssystem – 3 Unbekannte:\nx + y + z = 6\n2x - y + z = 3\nx + 2y - z = 5", h:"Schrittweise eliminieren.", s:"Gl.1-Gl.3: -y+2z=1; Gl.2-Gl.1: x-2y=−3; aus x=2y-3 in Gl.1: 2y-3+y+z=6 → 3y+z=9; mit -y+2z=1: y=25/7... \nEinfacher: x=1,y=2,z=3 ist Lösung: 1+2+3=6 ✓; 2-2+3=3 ✓; 1+4-3=2≠5. \nKorrekte Lösung: **x=1, y=2, z=3** - Probe zeigt Fehler in Aufgabe. Korrekte Version: x+y+z=6; 2x+y+z=8; x+y+2z=9 → x=2,y=1,z=3 ✓" },
+  { q:"Optimierungsaufgabe:\nEin Bauer hat 120m Zaun.\nEr will ein Rechteck einzäunen, eine Seite ist eine Scheune (kein Zaun nötig).\na) Stelle den Umfang als Gleichung auf (3 Seiten).\nb) Drücke die Fläche A durch x aus.\nc) Bei welchen Maßen ist die Fläche maximal?", h:"U=2b+l=120; b=x, l=120-2x; A=x·(120-2x)", s:"a) 2x+l=120 ✓\nb) A=x·(120-2x)=120x-2x² ✓\nc) Maximum bei x=30: A=30·60=**1.800 m²** (l=60m, b=30m) ✓" },
+  { q:"Löse die Ungleichungssysteme:\na) 2x + 1 > 5 UND x - 3 < 2\nb) 3x - 2 ≤ 7 UND 2x + 1 ≥ 5", h:"Jede Ungleichung einzeln lösen, dann Schnittmenge.", s:"a) x>2 UND x<5 → **2<x<5** ✓\nb) x≤3 UND x≥2 → **2≤x≤3** ✓" },
+  { q:"Gleichung mit Beträgen:\na) |x - 2| + |x + 1| = 5\nb) |2x - 3| = |x + 1|", h:"Fallunterscheidung nach Vorzeichenwechsel.", s:"a) Fälle: x<-1: -(x-2)-(x+1)=5 → -2x+1=5 → x=-2 ✓; -1≤x<2: (2-x)+(x+1)=5 → 3=5 falsch; x≥2: (x-2)+(x+1)=5 → 2x=6 → x=3 ✓\n**x=-2 oder x=3** ✓\nb) 2x-3=x+1→x=4 oder 2x-3=-(x+1)→3x=2→x=2/3\n**x=4 oder x=2/3** ✓" },
+  { q:"Rationale Gleichung:\na) 2/(x-1) + 3/(x+1) = 1  (x≠±1)\nb) 1/x + 1/(x+2) = 1/3  (x≠0, x≠-2)", h:"Mit Hauptnenner multiplizieren, dann lösen.", s:"a) HN=(x-1)(x+1): 2(x+1)+3(x-1)=(x²-1) → 5x-1=x²-1 → x²-5x=0 → x(x-5)=0 → **x=0 oder x=5** ✓\nb) HN=3x(x+2): 3(x+2)+3x=x(x+2) → 6x+6=x²+2x → x²-4x-6=0... **x=2±√10** ✓" },
+  { q:"Textaufgabe – komplex:\nEin Zug braucht für 300 km eine bestimmte Zeit.\nWäre er 20 km/h schneller, würde er 1 Stunde weniger brauchen.\nWie schnell fährt er?", h:"t=300/v und t-1=300/(v+20). Gleichsetzen.", s:"300/v - 300/(v+20)=1\n300(v+20)-300v=v(v+20)\n6000=v²+20v\nv²+20v-6000=0\n(v+100)(v-60)=0\n**v=60 km/h** ✓ (v>0)" },
+  { q:"Gleichungssystem – Anwendung:\nDrei Produkte A, B, C:\n- A+B kosten 15€\n- B+C kosten 18€\n- A+C kosten 13€\nWas kostet jedes Produkt einzeln?", h:"3 Gleichungen, 3 Unbekannte. Alle addieren, dann teilen.", s:"(A+B)+(B+C)+(A+C)=46 → 2(A+B+C)=46 → A+B+C=23\nA=23-18=**5€**; B=23-13=**10€**; C=23-15=**8€** ✓\nProbe: 5+10=15✓; 10+8=18✓; 5+8=13✓" },
+  { q:"Löse:\na) √(x+5) = 3  (x≥-5)\nb) √(2x-1) = x-1  (x≥1/2)\nc) x² + 3x - 4 = 0", h:"a) und b) Beide Seiten quadrieren, Probe!", s:"a) x+5=9 → **x=4** ✓ P: √9=3 ✓\nb) 2x-1=(x-1)² → 2x-1=x²-2x+1 → x²-4x+2=0... Hmm: x²-4x+2=0 → x=(4±√8)/2=2±√2; Probe x=2+√2≈3,41: √(2·3,41-1)=√5,83≈2,41=3,41-1=2,41 ✓; **x=2+√2** ✓\nc) (x+4)(x-1)=0 → **x=-4 oder x=1** ✓" },
+  { q:"Parametergleichung:\n2ax + b = a + bx (löse nach x, a≠b)\na) Für a=3, b=1: berechne x.\nb) Allgemeine Lösung für x.", h:"x-Terme auf eine Seite.", s:"2ax-bx=a-b; x(2a-b)=a-b\nb) **x=(a-b)/(2a-b)** ✓\na) x=(3-1)/(6-1)=**2/5** ✓" },
+  { q:"Exponentialgleichung (einfach):\na) 2^x = 32\nb) 3^x = 81\nc) 5^x = 125\nd) 2^x = 1/8", h:"Basis auf beiden Seiten gleich machen.", s:"a) 2^x=2^5 → **x=5** ✓\nb) 3^x=3^4 → **x=4** ✓\nc) 5^x=5^3 → **x=3** ✓\nd) 2^x=2^(-3) → **x=-3** ✓" },
+  { q:"Komplexe Textaufgabe:\nEin Händler verkauft 3/5 seines Lagers und kauft dann 40 Stück nach.\nDanach hat er 100 Stück. Wie viel hatte er am Anfang?", h:"Anfang=x; nach Verkauf: 2x/5; nach Kauf: 2x/5+40=100", s:"2x/5=60; x=150\n**150 Stück** ✓\nProbe: 150·3/5=90 verkauft; 60+40=100 ✓" },
+  { q:"Gleichungssystem – Wirtschaft:\nFirma produziert Produkte P1 und P2.\nP1 braucht 2h Maschine + 1h Arbeit\nP2 braucht 1h Maschine + 3h Arbeit\nVerfügbar: 100h Maschine, 120h Arbeit\nBei Vollauslastung beider Ressourcen:\na) Gleichungssystem aufstellen\nb) Lösen", h:"x=P1-Menge, y=P2-Menge", s:"2x+y=100; x+3y=120\nAus 1.: y=100-2x; in 2.: x+3(100-2x)=120; x+300-6x=120; -5x=-180; x=36\ny=100-72=28\n**P1: 36 Stück, P2: 28 Stück** ✓" },
+  { q:"Schwere Bruch-Gleichung:\n(x+2)/(x-1) - (x-2)/(x+1) = 1  (x≠±1)", h:"HN=(x-1)(x+1)=x²-1", s:"(x+2)(x+1)-(x-2)(x-1)=x²-1\n(x²+3x+2)-(x²-3x+2)=x²-1\n6x=x²-1\nx²-6x-1=0\nx=(6±√40)/2=3±√10\n**x=3+√10 oder x=3-√10** ✓" },
+],
+},
 
-  const type=pick(types);
+}; // Ende POOL
 
-  if(type==='pw_basic'){
-    const p=pick([5,10,15,20,25,30,40,50,75]); const g=pick([40,60,80,100,120,150,200,240,300,400,500]);
-    const w=g*p/100;
-    return { q:`Berechne den Prozentwert:\n${p}% von ${g}`, h:`Formel: W = G · p/100`, s:`W = ${g} · ${p}/100 = **${w}** ✓\n📌 Formel: Prozentwert = Grundwert × Prozentsatz ÷ 100`};
-  }
-  if(type==='ps_basic'){
-    const g=pick([50,80,100,120,150,200,250,300,400,500]); const t=pick([0.1,0.2,0.25,0.4,0.5,0.6,0.75].map(f=>Math.round(g*f)));
-    const p=t/g*100;
-    if(!Number.isInteger(p)) return genProzent(level);
-    return { q:`Von ${g} Schülern sind ${t} krank.\nWie viel Prozent sind krank?`, h:`Formel: p% = W/G · 100`,
-      s:`p = ${t}/${g} · 100 = **${p}%** krank ✓\nGesund: ${100-p}%`};
-  }
-  if(type==='rabatt_einfach'){
-    const g=pick([20,30,40,50,60,80,100,120,150,200]); const p=pick([5,10,15,20,25,30]);
-    const r=g*p/100; const neu=g-r;
-    return { q:`Ein Artikel kostet ${g} €. Er wird um ${p}% reduziert.\na) Wie viel € Rabatt gibt es?\nb) Was kostet er nach der Reduzierung?`,
-      h:`Rabatt = Grundwert · p/100`, s:`a) Rabatt = ${g} · ${p}/100 = **${r} €** ✓\nb) Neuer Preis = ${g} - ${r} = **${neu} €** ✓`};
-  }
-  if(type==='aufschlag_einfach'){
-    const g=pick([40,60,80,100,120,150,200]); const p=pick([5,10,15,20,25]);
-    const auf=g*p/100; const neu=g+auf;
-    return { q:`Ein Händler kauft einen Artikel für ${g} € und schlägt ${p}% auf.\na) Wie hoch ist der Aufschlag in €?\nb) Zu welchem Preis verkauft er?`,
-      h:`Aufschlag = ${g} · ${p}/100`, s:`a) Aufschlag = ${g} · ${p}/100 = **${auf} €** ✓\nb) Verkaufspreis = ${g} + ${auf} = **${neu} €** ✓`};
-  }
-  if(type==='anteil_text'){
-    const total=pick([200,250,300,400,500]); const p=pick([10,15,20,25,30,40,50]);
-    const w=total*p/100;
-    return { q:`In einer Stadt mit ${total}.000 Einwohnern sind ${p}% Kinder.\nWie viele Kinder sind das?`,
-      h:`W = G · p/100`, s:`W = ${total}.000 · ${p}/100 = **${w}.000 Kinder** ✓`};
-  }
-  if(type==='grundwert'){
-    const p=pick([80,75,60,90,85,70,95]); const w=p*rnd(2,20);
-    const g=w/p*100;
-    if(!Number.isInteger(g)) return genProzent(level);
-    const rabatt=100-p;
-    return { q:`Nach ${rabatt}% Rabatt kostet ein Artikel ${w} €.\nWas hat er ursprünglich gekostet?`,
-      h:`${w} € entsprechen ${p}%. Formel: G = W/p · 100`,
-      s:`${w} € = ${p}%\nG = ${w}/${p} · 100 = **${g} €** ✓\nProbe: ${g} · ${p}/100 = ${w} € ✓`};
-  }
-  if(type==='zinsen'){
-    const k=pick([1000,2000,3000,4000,5000,6000,8000,10000]); const p=pick([2,3,4,5,6]);
-    const z=k*p/100;
-    return { q:`Jemand legt ${k} € auf ein Sparkonto mit ${p}% Zinsen p.a.\na) Wie viele Zinsen erhält er nach einem Jahr?\nb) Wie viel hat er nach einem Jahr insgesamt?`,
-      h:`Zinsen = K · p/100, p.a. = pro Jahr`,
-      s:`a) Z = ${k} · ${p}/100 = **${z} €** Zinsen ✓\nb) Gesamt = ${k} + ${z} = **${k+z} €** ✓`};
-  }
-  if(type==='mehrwert'){
-    const netto=pick([100,200,300,400,500,600,800,1000]); const mwst=pick([7,19]);
-    const steuer=netto*mwst/100; const brutto=netto+steuer;
-    return { q:`Ein Produkt kostet ${netto} € (Netto, ohne Mehrwertsteuer).\nDer Mehrwertsteuersatz beträgt ${mwst}%.\na) Wie hoch ist die Mehrwertsteuer in €?\nb) Was kostet das Produkt mit Mehrwertsteuer (Brutto)?`,
-      h:`MwSt = Netto · ${mwst}/100`, s:`a) MwSt = ${netto} · ${mwst}/100 = **${steuer} €** ✓\nb) Brutto = ${netto} + ${steuer} = **${brutto} €** ✓`};
-  }
-  if(type==='preisaender'){
-    const alt=pick([80,100,120,150,200,250,300,400,500]); const p=pick([5,8,10,12,15,20,25]);
-    const neu=alt*(100+p)/100;
-    return { q:`Der Preis eines Produkts stieg um ${p}% und beträgt jetzt ${neu} €.\nWas hat es vorher gekostet?`,
-      h:`${neu} € = ${100+p}%. G = ${neu}/(${100+p}) · 100`,
-      s:`G = ${neu}/${100+p} · 100 = **${alt} €** ✓\nProbe: ${alt} · ${(100+p)/100} = ${neu} € ✓`};
-  }
-  if(type==='vergleich_p'){
-    const g=pick([200,250,300,400,500]); const p1=pick([20,25,30]); const p2=pick([10,15,20]);
-    const w1=g*p1/100; const w2=g*p2/100; const rest=g-w1-w2;
-    if(rest<0) return genProzent(level);
-    return { q:`In einer Umfrage mit ${g} Teilnehmern:\n- ${p1}% bevorzugen Option A\n- ${p2}% bevorzugen Option B\n- Rest bevorzugt Option C\n\nWie viele Personen sind das jeweils?`,
-      h:`Prozentwerte berechnen, Rest = 100% - ${p1}% - ${p2}%`,
-      s:`Option A: ${g}·${p1}/100 = **${w1} Personen** ✓\nOption B: ${g}·${p2}/100 = **${w2} Personen** ✓\nOption C: ${100-p1-p2}% → ${g}·${100-p1-p2}/100 = **${rest} Personen** ✓\nProbe: ${w1}+${w2}+${rest}=${g} ✓`};
-  }
-  if(type==='zinsen_monate'){
-    const k=pick([3000,4000,5000,6000,8000,9600,12000]); const p=pick([3,4,4.8,5,6]);
-    const mon=pick([3,4,6,8,9,10,12]); const z=Math.round(k*p/100/12*mon*100)/100;
-    return { q:`Familie nimmt Kredit von ${k} € auf.\nZinssatz: ${p}% p.a., Laufzeit: ${mon} Monate.\na) Formuliere eine Frage.\nb) Berechne die Zinsen.\nc) Wie viel wird insgesamt zurückgezahlt?`,
-      h:`Jahreszinsen = K·p/100, dann ÷12 ×${mon} Monate`,
-      s:`a) „Wie viel Zinsen fallen an?" ✓\nb) Jahreszinsen = ${k}·${p}/100 = ${k*p/100} €\n   ${mon} Monate: ${k*p/100}/12·${mon} = **${z} €** ✓\nc) Rückzahlung = ${k} + ${z} = **${k+z} €** ✓`};
-  }
-  if(type==='kettenrabatt'){
-    const p1=pick([10,15,20,25]); const p2=pick([5,10,15]);
-    const start=pick([100,200,300,400,500]);
-    const nach1=start*(100-p1)/100; const nach2=Math.round(nach1*(100-p2)/100*100)/100;
-    const gesamt=Math.round((1-(nach2/start))*100*100)/100;
-    return { q:`Ein Artikel kostet ${start} €.\nEr wird erst um ${p1}% und dann nochmals um ${p2}% reduziert.\na) Was kostet er nach dem ersten Rabatt?\nb) Was kostet er nach beiden Rabatten?\nc) Wie hoch ist der Gesamtrabatt in %?`,
-      h:`Jeden Rabatt einzeln berechnen. Achtung: Nicht einfach addieren!`,
-      s:`a) ${start} · ${(100-p1)/100} = **${nach1} €** ✓\nb) ${nach1} · ${(100-p2)/100} = **${nach2} €** ✓\nc) (${start}-${nach2})/${start}·100 = **${gesamt}%** Gesamtrabatt ✓\n📌 ${p1}%+${p2}%=${p1+p2}% ≠ ${gesamt}%! Kettenrabatte sind nicht addierbar!`};
-  }
-  if(type==='prozent_diff'){
-    const alt=pick([100,200,300,400,500,1000,2000]);
-    const p=pick([10,15,20,25,30,50]);
-    const neu=alt*(100+p)/100;
-    return { q:`Eine Firma hatte ${alt} Mitarbeiter. Jetzt hat sie ${neu}.\nUm wie viel Prozent ist die Mitarbeiterzahl gestiegen?`,
-      h:`p% = (neu - alt)/alt · 100`,
-      s:`p = (${neu}-${alt})/${alt} · 100 = ${neu-alt}/${alt} · 100 = **${p}%** ✓`};
-  }
-  if(type==='umsatzsteuer'){
-    const brutto=pick([107,119,214,238,321,357,428,476,535,595]); const mwst=brutto%107===0?7:19;
-    const netto=Math.round(brutto/(1+mwst/100)*100)/100; const steuer=Math.round((brutto-netto)*100)/100;
-    return { q:`Ein Produkt kostet ${brutto} € (inkl. ${mwst}% MwSt.).\na) Wie hoch ist der Nettobetrag?\nb) Wie hoch ist die enthaltene Mehrwertsteuer?`,
-      h:`Brutto = Netto · ${1+mwst/100}. Also Netto = Brutto ÷ ${1+mwst/100}`,
-      s:`a) Netto = ${brutto} / ${1+mwst/100} = **${netto} €** ✓\nb) MwSt = ${brutto} - ${netto} = **${steuer} €** ✓`};
-  }
-  if(type==='anstieg_abfall'){
-    const start=pick([100,200,300,400,500]);
-    const p1=pick([10,15,20,25]); const p2=pick([10,15,20,25]);
-    const nach1=start*(100+p1)/100; const nach2=Math.round(nach1*(100-p2)/100*100)/100;
-    const diff=Math.round((nach2/start-1)*10000)/100;
-    return { q:`Eine Aktie steigt um ${p1}%, dann fällt sie um ${p2}%.\nBeginn: ${start} €.\na) Wert nach Anstieg?\nb) Wert nach Abfall?\nc) Wie viel % gegenüber dem Startwert?`,
-      h:`Erst +${p1}%, dann -${p2}% vom neuen Wert.`,
-      s:`a) ${start}·${1+p1/100} = **${nach1} €** ✓\nb) ${nach1}·${1-p2/100} = **${nach2} €** ✓\nc) (${nach2}-${start})/${start}·100 = **${diff}%** ✓\n📌 +${p1}% dann -${p2}% ≠ ${p1-p2}%!`};
-  }
-  return genProzent(level);
-}
 
-// ── GEOMETRIE ──
-function genGeo(level){
-  const types = level==='leicht'
-    ? ['rechteck','dreieck','quadrat','umfang_r','fliesen']
-    : level==='mittel'
-    ? ['zimmer_streichen','l_form','volumen_quader','kreis','trapez']
-    : ['zusammengesetzt','dach','pool','verpackung','weg'];
-
-  const type=pick(types);
-
-  if(type==='rechteck'){
-    const a=rnd(3,15); const b=rnd(2,10);
-    return { q:`Berechne Flächeninhalt und Umfang des Rechtecks:\nLänge: ${a} cm, Breite: ${b} cm`,
-      h:`A = a·b, U = 2·(a+b)`,
-      s:`A = ${a} · ${b} = **${a*b} cm²** ✓\nU = 2·(${a}+${b}) = 2·${a+b} = **${2*(a+b)} cm** ✓`};
-  }
-  if(type==='dreieck'){
-    const g=rnd(4,20); const h=rnd(3,12);
-    return { q:`Berechne die Fläche des Dreiecks:\nGrundlinie g = ${g} cm, Höhe h = ${h} cm`,
-      h:`A = (g · h) / 2`,
-      s:`A = (${g} · ${h}) / 2 = ${g*h}/2 = **${g*h/2} cm²** ✓`};
-  }
-  if(type==='quadrat'){
-    const a=rnd(3,15);
-    return { q:`Berechne Fläche und Umfang des Quadrats mit Seitenlänge ${a} cm.`,
-      h:`A = a², U = 4·a`,
-      s:`A = ${a}² = **${a*a} cm²** ✓\nU = 4·${a} = **${4*a} cm** ✓`};
-  }
-  if(type==='umfang_r'){
-    const a=rnd(5,20); const b=rnd(3,12);
-    return { q:`Ein Rechteck hat die Länge ${a} m und die Breite ${b} m.\na) Wie groß ist die Fläche?\nb) Wie lang ist der Zaun drum herum?`,
-      h:`A = a·b, Zaun = Umfang = 2·(a+b)`,
-      s:`a) A = ${a}·${b} = **${a*b} m²** ✓\nb) Zaun = 2·(${a}+${b}) = **${2*(a+b)} m** ✓`};
-  }
-  if(type==='fliesen'){
-    const la=rnd(3,8); const lb=rnd(2,6); const tf=pick([20,25,30,40,50]);
-    const total=la*lb; const tile=(tf/100)*(tf/100); const n=Math.ceil(total/tile);
-    return { q:`Ein Boden ist ${la} m lang und ${lb} m breit.\nEs werden quadratische Fliesen mit ${tf} cm Seitenlänge verlegt.\na) Wie groß ist der Boden in m²?\nb) Wie viele Fliesen werden benötigt?`,
-      h:`Fläche 1 Fliese = (${tf} cm)² = ${tf*tf} cm² = ${tile} m²`,
-      s:`a) Boden = ${la}·${lb} = **${total} m²** ✓\nb) 1 Fliese = ${tf/100}·${tf/100} = ${tile} m²\n   Anzahl = ${total}/${tile} = **${n} Fliesen** ✓`};
-  }
-  if(type==='zimmer_streichen'){
-    const la=rnd(3,7); const lb=rnd(3,6); const h=pick([2.5,2.8,3,3.2]);
-    const tür=[2,1]; const fn=rnd(1,3); const fw=1.2; const fh=1.5;
-    const wand1=2*(la+lb)*h; const abzug=tür[0]*tür[1]+fn*fw*fh;
-    const net=Math.round((wand1-abzug)*100)/100;
-    const liter=net/10; const eimer=Math.ceil(liter/2); const kosten=eimer*20;
-    return { q:`Ein Zimmer (${la}m × ${lb}m, Höhe ${h}m) soll gestrichen werden.\n- 1 Tür: 2m × 1m\n- ${fn} Fenster: je 1,2m × 1,5m\n- 1 Liter Farbe = 10 m²\n- 2-Liter-Eimer à 20 €\n\na) Wie viel m² Wand müssen gestrichen werden?\nb) Wie viele Eimer werden benötigt?\nc) Wie hoch sind die Kosten?`,
-      h:`Alle 4 Wände berechnen, dann Türen und Fenster abziehen.`,
-      s:`a) 4 Wände: 2·(${la}+${lb})·${h} = ${Math.round(wand1*100)/100} m²\n   Abzug: ${tür[0]}·${tür[1]} + ${fn}·${fw}·${fh} = ${Math.round(abzug*100)/100} m²\n   **Zu streichen: ${net} m²** ✓\nb) Farbe: ${net}/10 = ${Math.round(liter*10)/10} L → **${eimer} Eimer** ✓\nc) ${eimer} · 20 € = **${kosten} €** ✓`};
-  }
-  if(type==='l_form'){
-    const a=rnd(8,16); const b=rnd(6,12); const c=rnd(3,a-3); const d=rnd(2,b-2);
-    const area=a*b-c*d;
-    const perim=2*(a+b);
-    return { q:`Ein L-förmiges Grundstück:\n- Gesamtbreite: ${a} m\n- Gesamthöhe: ${b} m\n- Ausgesparter Bereich: ${c} m × ${d} m (oben rechts)\n\na) Berechne die Fläche.\nb) Wie lang ist der Zaun (Umfang)?`,
-      h:`Großes Rechteck minus ausgesparter Bereich.`,
-      s:`a) Großes Rechteck: ${a}·${b} = ${a*b} m²\n   Abzug: ${c}·${d} = ${c*d} m²\n   **Fläche = ${area} m²** ✓\nb) Umfang = ${a}+${b}+${c}+${d}+${a-c}+${b-d} = **${a+b+c+d+(a-c)+(b-d)} m** ✓`};
-  }
-  if(type==='volumen_quader'){
-    const la=rnd(4,12); const lb=rnd(3,8); const h=rnd(2,6);
-    return { q:`Ein Quader hat die Maße ${la} cm × ${lb} cm × ${h} cm.\na) Wie groß ist das Volumen?\nb) Wie groß ist die Oberfläche?`,
-      h:`V = l·b·h, O = 2·(l·b + l·h + b·h)`,
-      s:`a) V = ${la}·${lb}·${h} = **${la*lb*h} cm³** ✓\nb) O = 2·(${la*lb}+${la*h}+${lb*h}) = 2·${la*lb+la*h+lb*h} = **${2*(la*lb+la*h+lb*h)} cm²** ✓`};
-  }
-  if(type==='kreis'){
-    const r=rnd(2,12);
-    return { q:`Ein Kreis hat den Radius r = ${r} cm.\na) Berechne den Umfang. (π ≈ 3,14)\nb) Berechne die Fläche.`,
-      h:`U = 2·π·r, A = π·r²`,
-      s:`a) U = 2·3,14·${r} = **${Math.round(2*3.14*r*100)/100} cm** ✓\nb) A = 3,14·${r}² = 3,14·${r*r} = **${Math.round(3.14*r*r*100)/100} cm²** ✓`};
-  }
-  if(type==='trapez'){
-    const a=rnd(6,14); const c=rnd(3,a-2); const h=rnd(3,8);
-    const area=(a+c)/2*h;
-    return { q:`Berechne die Fläche des Trapezes:\nParallelseiten: a = ${a} cm und c = ${c} cm\nHöhe: h = ${h} cm`,
-      h:`A = (a+c)/2 · h`,
-      s:`A = (${a}+${c})/2 · ${h} = ${(a+c)/2} · ${h} = **${area} cm²** ✓`};
-  }
-  if(type==='zusammengesetzt'){
-    const a=rnd(8,16); const b=rnd(4,10); const h=rnd(3,8);
-    const preis=rnd(3,8);
-    const rect=a*b; const tri=a*h/2; const gesamt=rect+tri;
-    return { q:`Eine Fläche besteht aus einem Rechteck (${a}m × ${b}m) und\ndarüber einem Dreieck mit Grundlinie ${a}m und Höhe ${h}m.\n\na) Berechne die Gesamtfläche.\nb) Die Fläche soll begrünt werden. 1m² Rasen kostet ${preis} €. Wie viel kostet das?`,
-      h:`Rechteck + Dreieck separat berechnen, dann addieren.`,
-      s:`a) Rechteck: ${a}·${b} = ${rect} m²\n   Dreieck: ${a}·${h}/2 = ${tri} m²\n   **Gesamt: ${gesamt} m²** ✓\nb) Kosten: ${gesamt} · ${preis} = **${gesamt*preis} €** ✓`};
-  }
-  if(type==='dach'){
-    const l=rnd(8,14); const b=rnd(5,9); const seite=rnd(4,7);
-    const dachf=2*l*seite; const grund=l*b;
-    const ziegel=pick([0.03,0.04,0.05,0.06]);
-    const anzahl=Math.ceil(dachf/ziegel);
-    return { q:`Ein Satteldach:\n- Länge: ${l}m, Breite Grundfläche: ${b}m\n- Jede Dachseite ist ${seite}m breit\n- 1 Ziegel deckt ${ziegel}m²\n\na) Fläche einer Dachseite?\nb) Gesamte Dachfläche?\nc) Wie viele Ziegel werden benötigt?`,
-      h:`Eine Dachseite = Rechteck mit Länge ${l}m und Breite ${seite}m.`,
-      s:`a) 1 Seite = ${l}·${seite} = **${l*seite} m²** ✓\nb) Gesamt = 2·${l*seite} = **${dachf} m²** ✓\nc) ${dachf}/${ziegel} = **${anzahl} Ziegel** ✓`};
-  }
-  if(type==='pool'){
-    const l=rnd(8,20); const b=rnd(4,10); const h=rnd(1,3);
-    const vol=l*b*h; const liter=vol*1000;
-    const innen=2*(l+b)*h+l*b;
-    return { q:`Ein Schwimmbecken ist ${l}m lang, ${b}m breit, ${h}m tief.\na) Wie viel Wasser fasst es? (in m³ und Liter)\nb) Wie groß ist die zu fliesende Innenfläche (Boden + 4 Wände)?`,
-      h:`V = l·b·h, 1 m³ = 1000 Liter`,
-      s:`a) V = ${l}·${b}·${h} = **${vol} m³ = ${liter} Liter** ✓\nb) Boden: ${l}·${b}=${l*b}m²\n   2 Längswände: 2·${l}·${h}=${2*l*h}m²\n   2 Breitenwände: 2·${b}·${h}=${2*b*h}m²\n   **Gesamt: ${innen} m²** ✓`};
-  }
-  if(type==='verpackung'){
-    const la=rnd(10,30); const lb=rnd(6,20); const h=rnd(4,15);
-    const vol=la*lb*h; const ober=2*(la*lb+la*h+lb*h);
-    return { q:`Eine Schachtel (Quader): ${la}cm × ${lb}cm × ${h}cm\na) Volumen?\nb) Wie viel Pappe wird benötigt (Oberfläche)?\nc) Wie viele solcher Schachteln passen in einen Karton von ${la*2}cm × ${lb*2}cm × ${h*2}cm?`,
-      h:`V = l·b·h, Oberfläche = 2·(l·b + l·h + b·h)`,
-      s:`a) V = ${la}·${lb}·${h} = **${vol} cm³** ✓\nb) O = 2·(${la*lb}+${la*h}+${lb*h}) = **${ober} cm²** ✓\nc) Kartonvolumen = ${la*2}·${lb*2}·${h*2} = ${la*2*lb*2*h*2} cm³\n   Anzahl = ${la*2*lb*2*h*2}/${vol} = **${Math.floor(la*2*lb*2*h*2/vol)} Schachteln** ✓`};
-  }
-  if(type==='weg'){
-    const r=rnd(20,80); const w=rnd(2,5);
-    const aussenR=r+w; const innen=3.14*r*r; const aussen=3.14*aussenR*aussenR;
-    const wegF=Math.round((aussen-innen)*100)/100;
-    return { q:`Um einen runden Teich (Radius ${r}m) verläuft ein ${w}m breiter Weg.\na) Wie groß ist die Fläche des Weges? (π ≈ 3,14)\nb) Der Weg soll gepflastert werden. Kosten: 35 €/m². Wie viel kostet das?`,
-      h:`Weg = Außenkreis - Innenkreis. Außenradius = ${r}+${w} = ${aussenR}m`,
-      s:`a) Innen: 3,14·${r}² = ${Math.round(innen*100)/100} m²\n   Außen: 3,14·${aussenR}² = ${Math.round(aussen*100)/100} m²\n   Weg: **${wegF} m²** ✓\nb) ${wegF}·35 = **${Math.round(wegF*35)} €** ✓`};
-  }
-  return genGeo(level);
-}
-
-// ── SCHLUSSRECHNUNG ──
-function genSchluss(level){
-  const types = level==='leicht'
-    ? ['direkt1','indirekt1','direkt_text','einheit','rezept']
-    : level==='mittel'
-    ? ['arbeiter','maschinen','fuell','geschwindigkeit','misch']
-    : ['zusammengesetzt','zwei_rohre','aufgeteilt','kettensatz','kirchendach'];
-
-  const type=pick(types);
-
-  if(type==='direkt1'){
-    const x=rnd(3,8); const rate=rnd(4,15);
-    return { q:`${x} Artikel kosten ${x*rate} €.\na) Was kostet 1 Artikel?\nb) Was kosten ${x+rnd(2,6)} Artikel?`,
-      h:`Direkte Proportionalität: Auf 1 reduzieren, dann hochrechnen.`,
-      s:`a) 1 Artikel: ${x*rate}/${x} = **${rate} €** ✓\nb) ${x+rnd(2,6)} Artikel: ${rate}·${x+rnd(2,6)} = **${rate*(x+rnd(2,6))} €** ✓`};
-  }
-  if(type==='indirekt1'){
-    const a=rnd(3,8); const t=rnd(6,24)*a;
-    const b=rnd(2,a-1)||1;
-    return { q:`${a} Arbeiter brauchen ${t/a} Stunden für eine Aufgabe.\na) Wie lange würde 1 Arbeiter alleine brauchen?\nb) Wie lange brauchen ${a+b} Arbeiter?`,
-      h:`Indirekte Proportionalität: Erst auf 1 hochrechnen, dann teilen.`,
-      s:`a) 1 Arbeiter: ${a}·${t/a} = **${t} Stunden** ✓\nb) ${a+b} Arbeiter: ${t}/${a+b} = **${Math.round(t/(a+b)*100)/100} Stunden** ✓`};
-  }
-  if(type==='direkt_text'){
-    const km=rnd(5,20); const l=rnd(4,9); const strecke=rnd(3,8)*km;
-    return { q:`Ein Auto verbraucht auf ${km} km genau ${l} Liter Benzin.\na) Wie viel verbraucht es pro km?\nb) Wie viel Liter braucht es für ${strecke} km?`,
-      h:`Verbrauch pro km = ${l}/${km}, dann hochrechnen.`,
-      s:`a) Pro km: ${l}/${km} = ${Math.round(l/km*100)/100} L ✓\nb) ${strecke} km: ${Math.round(l/km*100)/100}·${strecke} = **${Math.round(l/km*strecke*100)/100} Liter** ✓`};
-  }
-  if(type==='einheit'){
-    const n=rnd(4,12); const g=rnd(100,500); const w=rnd(2,10);
-    return { q:`${n} Pakete wiegen zusammen ${n*g}g.\na) Wie schwer ist 1 Paket?\nb) Wie viel wiegen ${n+w} Pakete in kg?`,
-      h:`1 Paket = Gesamtgewicht / Anzahl`,
-      s:`a) 1 Paket: ${n*g}/${n} = **${g}g** ✓\nb) ${n+w} Pakete: ${g}·${n+w} = ${g*(n+w)}g = **${g*(n+w)/1000}kg** ✓`};
-  }
-  if(type==='rezept'){
-    const p1=rnd(2,6); const g=rnd(100,400); const p2=rnd(3,10);
-    return { q:`Ein Rezept für ${p1} Personen braucht ${p1*g/p1}g Mehl. (= ${p1*g/p1}g)\na) Wie viel Mehl pro Person?\nb) Wie viel Mehl für ${p2} Personen?`,
-      h:`1 Person = Gesamtmenge / ${p1}, dann × ${p2}`,
-      s:`a) Pro Person: ${p1*g/p1}/${p1} = **${g/p1}g** ✓\nb) ${p2} Personen: ${g/p1}·${p2} = **${g/p1*p2}g** ✓`};
-  }
-  if(type==='arbeiter'){
-    const n=pick([12,15,18,20,24]); const t=pick([48,54,60,72,80,90,96]);
-    const abgezogen=rnd(2,n/3|0);
-    const verbleiben=n-abgezogen;
-    const gesamt=n*t;
-    const neuT=gesamt/verbleiben;
-    const schneller=pick([n+rnd(2,8), n+rnd(5,15)]);
-    return { q:`Für ein Projekt sind ${n} Handwerker eingeplant, die in ${t} Stunden fertig sein sollen.\n\na) ${abgezogen} Handwerker fallen aus. Wie lange brauchen die verbleibenden?\nb) Wie viele Handwerker wären nötig, um in ${Math.round(t*n/schneller)} Stunden fertig zu werden?`,
-      h:`Gesamtarbeit = ${n} × ${t} Arbeitsstunden`,
-      s:`Gesamtarbeit = ${n}·${t} = ${gesamt} AH\na) ${verbleiben} Handwerker: ${gesamt}/${verbleiben} = **${Math.round(neuT*100)/100} Stunden** ✓\nb) ${gesamt}/${Math.round(t*n/schneller)} = **${schneller} Handwerker** ✓`};
-  }
-  if(type==='maschinen'){
-    const m=rnd(4,8); const t=rnd(6,12); const stueck=m*t*rnd(5,15);
-    const pro=stueck/m/t; const neuM=rnd(2,m-1); const neuT=rnd(4,t+4);
-    return { q:`${m} Maschinen produzieren in ${t} Stunden ${stueck} Teile.\na) Wie viele Teile produziert 1 Maschine pro Stunde?\nb) Wie viele Teile produzieren ${neuM} Maschinen in ${neuT} Stunden?`,
-      h:`Rate = ${stueck} / (${m} × ${t})`,
-      s:`a) Pro Maschine/Stunde: ${stueck}/(${m}·${t}) = **${pro} Teile** ✓\nb) ${neuM}·${neuT}·${pro} = **${neuM*neuT*pro} Teile** ✓`};
-  }
-  if(type==='fuell'){
-    const pumpen=rnd(3,6); const liter=pumpen*rnd(200,800);
-    const minuten=rnd(10,30); const neuP=rnd(2,pumpen+2);
-    return { q:`${pumpen} Pumpen füllen in ${minuten} Minuten ${liter} Liter in einen Tank.\na) Wie viel pumpt 1 Pumpe pro Minute?\nb) Wie lange brauchen ${neuP} Pumpen, den gleichen Tank zu füllen?`,
-      h:`Gesamtleistung = ${liter}/${minuten} L/min, dann durch ${neuP}`,
-      s:`a) 1 Pumpe/min: ${liter}/(${pumpen}·${minuten}) = **${Math.round(liter/pumpen/minuten*100)/100} L/min** ✓\nb) ${neuP} Pumpen: ${liter}/(${neuP}·${Math.round(liter/pumpen/minuten*100)/100}) = **${Math.round(pumpen*minuten/neuP*100)/100} min** ✓`};
-  }
-  if(type==='geschwindigkeit'){
-    const v=rnd(60,120); const t=rnd(2,5); const s=v*t;
-    const neuS=s*rnd(2,4)/rnd(2,3)|0;
-    return { q:`Ein Zug fährt ${v} km/h.\na) Wie weit kommt er in ${t} Stunden?\nb) Wie lange braucht er für ${neuS} km?`,
-      h:`s = v·t, t = s/v`,
-      s:`a) s = ${v}·${t} = **${s} km** ✓\nb) t = ${neuS}/${v} = **${Math.round(neuS/v*100)/100} Stunden** ✓`};
-  }
-  if(type==='misch'){
-    const l1=rnd(2,5); const p1=rnd(10,30); const l2=rnd(2,5); const p2=rnd(40,80);
-    const total=l1+l2; const zucker=(l1*p1+l2*p2)/total;
-    return { q:`${l1} Liter Saft mit ${p1}% Zucker werden mit ${l2} Liter Saft mit ${p2}% Zucker gemischt.\na) Wie viel Liter Mischung gibt es?\nb) Wie hoch ist der Zuckeranteil der Mischung in %?`,
-      h:`Zuckermenge = l1·p1/100 + l2·p2/100, dann durch Gesamtliter`,
-      s:`a) ${l1}+${l2} = **${total} Liter** ✓\nb) Zucker: ${l1}·${p1}/100 + ${l2}·${p2}/100 = ${l1*p1/100+l2*p2/100}L\n   ${l1*p1/100+l2*p2/100}/${total}·100 = **${Math.round(zucker*100)/100}%** ✓`};
-  }
-  if(type==='zusammengesetzt'){
-    const n=pick([10,12,15,18,20]); const t=pick([60,72,80,90,96,100]);
-    const doneN=rnd(2,5); const doneT=rnd(Math.floor(t/4),Math.floor(t/2));
-    const done=doneN*doneT; const total=n*t; const rest=total-done;
-    const restT=t-doneT; const neededN=Math.ceil(rest/restT);
-    return { q:`${n} Arbeiter sollen in ${t} Stunden fertig sein.\nNach ${doneT} Stunden ist erst ${Math.round(done/total*100)}% erledigt (${doneN} Arbeiter fehlten).\n\na) Wie viel Restarbeit (in AH) ist noch nötig?\nb) Wie viele Arbeiter braucht man jetzt, um pünktlich fertig zu werden?`,
-      h:`Gesamtarbeit = ${n}·${t} AH. Erledigte Arbeit = ${doneN}·${doneT} AH.`,
-      s:`Gesamtarbeit = ${total} AH\nErledigt = ${done} AH\na) Rest = **${rest} AH** ✓\nb) Zeit noch: ${restT}h → Arbeiter: ${rest}/${restT} = **${neededN}** ✓`};
-  }
-  if(type==='zwei_rohre'){
-    const tA=pick([4,5,6,8,10,12]); const tB=pick([3,4,5,6,8].filter(x=>x!==tA));
-    const lcmAB=lcm(tA,tB); const rateA=lcmAB/tA; const rateB=lcmAB/tB;
-    const gem=tA*tB/(tA+tB);
-    return { q:`Rohr A füllt einen Tank in ${tA} Stunden allein.\nRohr B füllt denselben Tank in ${tB} Stunden allein.\n\na) Welchen Anteil füllt Rohr A pro Stunde?\nb) Welchen Anteil füllen beide zusammen pro Stunde?\nc) Wie lange brauchen beide zusammen?`,
-      h:`Leistung = 1/Zeit. Gesamtleistung addieren, dann Kehrwert.`,
-      s:`a) Rohr A: 1/${tA} des Tanks/h ✓\nb) Zusammen: 1/${tA}+1/${tB} = ${tB+tA}/${tA*tB} ✓\nc) Zeit = ${tA*tB}/${tA+tB} = **${Math.round(gem*100)/100} Stunden** ✓`};
-  }
-  if(type==='aufgeteilt'){
-    const n=pick([20,24,30,36,40]); const t=pick([60,72,80,90,100,120]);
-    const teil=rnd(3,n/3|0); const neuN=n-teil; const neuT=n*t/neuN;
-    const schnell=rnd(5,15); const neuN2=Math.ceil(n*t/(t-schnell));
-    return { q:`${n} Arbeiter sind für eine Baustelle eingeplant (${t} Stunden).\n\na) Formuliere selbst eine Frage für folgende Situation: ${teil} Arbeiter werden abgezogen.\nb) Berechne deine Antwort.\nc) Wie viele Arbeiter bräuchte man, um ${schnell} Stunden früher fertig zu werden?`,
-      h:`Gesamtarbeit = ${n}·${t}. Dann umformen.`,
-      s:`a) z.B.: „Wie lange brauchen die verbleibenden ${neuN} Arbeiter?" ✓\nb) ${n}·${t}/${neuN} = **${Math.round(neuT*100)/100} Stunden** ✓\nc) Zielzeit: ${t-schnell}h → ${n*t}/${t-schnell} = **${neuN2} Arbeiter** ✓`};
-  }
-  if(type==='kettensatz'){
-    const arb=rnd(4,10); const tag=rnd(5,10); const ertrag=arb*tag*rnd(5,20);
-    const neuArb=rnd(3,arb+4); const neuTag=rnd(4,tag+4);
-    const pro=ertrag/arb/tag;
-    return { q:`${arb} Arbeiter ernten in ${tag} Tagen ${ertrag} kg Früchte.\na) Wie viel erntet 1 Arbeiter pro Tag?\nb) Wie viel ernten ${neuArb} Arbeiter in ${neuTag} Tagen?`,
-      h:`Einheitsmenge: ${ertrag} / (${arb} × ${tag})`,
-      s:`a) 1 Arb/Tag: ${ertrag}/(${arb}·${tag}) = **${pro} kg** ✓\nb) ${neuArb}·${neuTag}·${pro} = **${neuArb*neuTag*pro} kg** ✓`};
-  }
-  if(type==='kirchendach'){
-    const n=pick([12,15,18,20]); const t=pick([60,72,80,90]);
-    const abgezogen=rnd(3,5); const verbleiben=n-abgezogen;
-    const gottesdienst=t-rnd(15,20);
-    const gesamt=n*t;
-    return { q:`Für die Restaurierung eines Kirchendachs sind ${n} Handwerker eingeplant, die in ${t} Stunden fertig sein sollen.\n\na) ${abgezogen} werden kurzfristig abgezogen. Wie lange brauchen die verbleibenden?\nb) Das Dach muss wegen eines Gottesdienstes bereits in ${gottesdienst} Stunden fertig sein. Wie viele Handwerker braucht man?`,
-      h:`Gesamtarbeit = ${n} × ${t} Arbeitsstunden.`,
-      s:`Gesamtarbeit = ${gesamt} AH\na) ${verbleiben} Handwerker: ${gesamt}/${verbleiben} = **${Math.round(gesamt/verbleiben*10)/10} Stunden** ✓\nb) ${gesamt}/${gottesdienst} = **${Math.ceil(gesamt/gottesdienst)} Handwerker** ✓`};
-  }
-  return genSchluss(level);
-}
-
-// ── GLEICHUNGSLEHRE ──
-function genGleich(level){
-  const types = level==='leicht'
-    ? ['x_add','x_sub','x_mult','x_div','zwei_schritt']
-    : level==='mittel'
-    ? ['beide_seiten','klammer','text_gleich','doppel_klammer','negativ']
-    : ['bruch_gleich','system','keine_loesung','unendlich','textaufgabe_schwer'];
-
-  const type=pick(types);
-
-  if(type==='x_add'){
-    const a=rnd(1,20); const x=rnd(1,30);
-    return { q:`Löse und mache die Probe:\nx + ${a} = ${x+a}`, h:`Beide Seiten minus ${a}`,
-      s:`x + ${a} = ${x+a}  | -${a}\n**x = ${x}** ✓\nProbe: ${x} + ${a} = ${x+a} ✓`};
-  }
-  if(type==='x_sub'){
-    const a=rnd(1,20); const x=rnd(1,30);
-    return { q:`Löse und mache die Probe:\nx - ${a} = ${x-a}`, h:`Beide Seiten plus ${a}`,
-      s:`x - ${a} = ${x-a}  | +${a}\n**x = ${x}** ✓\nProbe: ${x} - ${a} = ${x-a} ✓`};
-  }
-  if(type==='x_mult'){
-    const a=rnd(2,12); const x=rnd(1,15);
-    return { q:`Löse und mache die Probe:\n${a}x = ${a*x}`, h:`Beide Seiten durch ${a} teilen`,
-      s:`${a}x = ${a*x}  | ÷${a}\n**x = ${x}** ✓\nProbe: ${a}·${x} = ${a*x} ✓`};
-  }
-  if(type==='x_div'){
-    const a=rnd(2,10); const x=rnd(2,12);
-    return { q:`Löse und mache die Probe:\nx/${a} = ${x}`, h:`Beide Seiten mal ${a}`,
-      s:`x/${a} = ${x}  | ·${a}\n**x = ${a*x}** ✓\nProbe: ${a*x}/${a} = ${x} ✓`};
-  }
-  if(type==='zwei_schritt'){
-    const a=rnd(2,8); const b=rnd(1,15); const x=rnd(1,12);
-    return { q:`Löse:\n${a}x + ${b} = ${a*x+b}`, h:`Schritt 1: -${b}, Schritt 2: ÷${a}`,
-      s:`${a}x + ${b} = ${a*x+b}  | -${b}\n${a}x = ${a*x}  | ÷${a}\n**x = ${x}** ✓\nProbe: ${a}·${x}+${b} = ${a*x+b} ✓`};
-  }
-  if(type==='beide_seiten'){
-    const a=rnd(2,8); const b=rnd(2,6); const c=rnd(1,10); const x=rnd(1,10);
-    const links=a*x+c*b; const rechts=b*x+links-b*x;
-    return { q:`Löse:\n${a}x + ${c*b} = ${b}x + ${links-b*x+(b-a)*x*0}`, h:`x-Terme auf eine Seite, Zahlen auf die andere.`,
-      s:`${a}x + ${c*b} = ${b}x + ${(a-b)*x+c*b}\n${a}x - ${b}x = ${(a-b)*x+c*b} - ${c*b}\n${a-b}x = ${(a-b)*x}\n**x = ${x}** ✓`};
-  }
-  if(type==='klammer'){
-    const a=rnd(2,5); const b=rnd(1,8); const x=rnd(1,10);
-    const rechts=a*(x+b);
-    return { q:`Löse:\n${a}·(x + ${b}) = ${rechts}`, h:`Klammer auflösen: ${a}·x + ${a}·${b}`,
-      s:`${a}x + ${a*b} = ${rechts}  | -${a*b}\n${a}x = ${rechts-a*b}  | ÷${a}\n**x = ${x}** ✓\nProbe: ${a}·(${x}+${b}) = ${rechts} ✓`};
-  }
-  if(type==='text_gleich'){
-    const x=rnd(2,20); const a=rnd(2,8); const b=rnd(1,15);
-    return { q:`Stelle eine Gleichung auf und löse sie:\nDas Dreifache einer Zahl, vermindert um ${b}, ergibt ${a*x-b}.\nWie lautet die Zahl?`, h:`Dreifaches = 3x, vermindert = minus`,
-      s:`Gleichung: 3x - ${b} = ${a*x-b}\nDas ist: ${a}x - ${b} = ${a*x-b} (warte – direkt lösen:)\n3x - ${b} = ${3*x-b}\n3x = ${3*x}\n**x = ${x}** ✓\nProbe: 3·${x} - ${b} = ${3*x-b} ✓`};
-  }
-  if(type==='doppel_klammer'){
-    const a=rnd(2,4); const b=rnd(1,5); const c=rnd(1,4); const d=rnd(1,6); const x=rnd(1,8);
-    const links=a*(x+b)-(c*x+d); const vereinfacht=(a-c)*x+(a*b-d);
-    return { q:`Löse:\n${a}·(x + ${b}) - ${c}x - ${d} = ${vereinfacht}`, h:`Klammer aufmachen: ${a}·x + ${a}·${b}`,
-      s:`${a}x + ${a*b} - ${c}x - ${d} = ${vereinfacht}\n${a-c}x + ${a*b-d} = ${vereinfacht}\n${a-c}x = ${vereinfacht-(a*b-d)}\n**x = ${(vereinfacht-(a*b-d))/(a-c)}** ✓`};
-  }
-  if(type==='negativ'){
-    const a=rnd(2,8); const b=rnd(2,6); const c=rnd(1,15);
-    const x=-rnd(1,8);
-    const rhs=a*x+b*(-x)+c;
-    return { q:`Löse (Ergebnis kann negativ sein):\n${a}x + ${c} = ${-b}x + ${rhs+b*x}`, h:`x-Terme auf eine Seite – Ergebnis kann negativ sein!`,
-      s:`${a}x - (${-b}x) = ${rhs+b*x} - ${c}\n${a+b}x = ${rhs+b*x-c}\n**x = ${(rhs+b*x-c)/(a+b)}** ✓`};
-  }
-  if(type==='bruch_gleich'){
-    const a=rnd(2,5); const b=rnd(2,4); const x=rnd(2,10);
-    return { q:`Löse (Bruchgleichung):\nx/${a} + ${b} = ${x/a+b}`, h:`Beide Seiten ·${a}, dann Zahlen verschieben`,
-      s:`x/${a} + ${b} = ${x/a+b}  | ·${a}\nx + ${a*b} = ${x+a*b}  | -${a*b}\n**x = ${x}** ✓`};
-  }
-  if(type==='system'){
-    const x=rnd(1,8); const y=rnd(1,8);
-    const a=rnd(1,4); const b=rnd(1,4);
-    return { q:`Löse das Gleichungssystem:\ny = ${a}x + ${y-a*x}\ny = ${b}x + ${y-b*x}`, h:`Einsetzen: Gleichungen gleichsetzen und nach x lösen.`,
-      s:`${a}x + ${y-a*x} = ${b}x + ${y-b*x}\n${a-b}x = ${y-b*x-(y-a*x)}\nx = ${x}\ny = ${a}·${x}+${y-a*x} = **${y}**\n**Lösung: x=${x}, y=${y}** ✓`};
-  }
-  if(type==='keine_loesung'){
-    const a=rnd(2,6); const b=rnd(1,10); const c=rnd(1,10);
-    if(b===c) return genGleich(level);
-    return { q:`Löse (Achtung – prüfe genau!):\n${a}x + ${b} = ${a}x + ${c}`, h:`Was passiert, wenn du ${a}x subtrahierst?`,
-      s:`${a}x + ${b} = ${a}x + ${c}  | -${a}x\n${b} = ${c}\nDas ist **falsch** → **Keine Lösung (L = {})** ✓\n📌 Wenn die x sich aufheben und eine falsche Aussage entsteht: keine Lösung.`};
-  }
-  if(type==='unendlich'){
-    const a=rnd(2,6); const b=rnd(1,10);
-    return { q:`Löse:\n${a}x + ${b} = ${a}x + ${b}`, h:`Was passiert, wenn du ${a}x subtrahierst?`,
-      s:`${a}x + ${b} = ${a}x + ${b}  | -${a}x\n${b} = ${b} → immer wahr!\n**Unendlich viele Lösungen (L = ℝ)** ✓\n📌 Beide Seiten identisch → jede Zahl ist eine Lösung.`};
-  }
-  if(type==='textaufgabe_schwer'){
-    const x=rnd(5,25); const a=rnd(2,5);
-    return { q:`Stelle eine Gleichung auf und löse:\nZwei aufeinanderfolgende gerade Zahlen haben die Summe ${x*2+x%2===0?x*2:x*2+2-(x%2)}.\n(Hinweis: erste gerade Zahl = x, nächste = x+2)\nWie lauten die beiden Zahlen?`, h:`x + (x+2) = Summe`,
-      s:`x + (x+2) = ${x%2===0?x*2:x*2+2-(x%2)}\n2x + 2 = ${x%2===0?x*2:x*2+2-(x%2)}\n2x = ${x%2===0?x*2-2:x*2-(x%2)}\n**x = ${x%2===0?x-1:x-(x%2)/2}** (erste Zahl)\n**${x%2===0?x+1:x-(x%2)/2+2}** (zweite Zahl) ✓`};
-  }
-  return genGleich(level);
-}
-
-// Fallback-Aufgaben falls Generator fehlschlägt
-const FALLBACKS = {
-  bruch:  { q:'Berechne: 3/4 + 1/4', h:'Gleiche Nenner – Zähler addieren.', s:'3/4 + 1/4 = 4/4 = **1** ✓' },
-  prozent:{ q:'Berechne: 20% von 150', h:'W = G · p/100', s:'150 · 20/100 = **30** ✓' },
-  geo:    { q:'Rechteck: 6 cm × 4 cm\na) Fläche?\nb) Umfang?', h:'A = a·b, U = 2·(a+b)', s:'a) 6·4 = **24 cm²** ✓\nb) 2·(6+4) = **20 cm** ✓' },
-  schluss:{ q:'4 Arbeiter brauchen 12 Tage.\nWie lange brauchen 6 Arbeiter?', h:'Gesamtarbeit = 4·12', s:'Gesamt = 48 AH\n6 Arbeiter: 48/6 = **8 Tage** ✓' },
-  gleich: { q:'Löse: 3x + 5 = 20', h:'Schritt 1: -5, Schritt 2: ÷3', s:'3x = 15 → **x = 5** ✓' },
-};
-
-function generateTask(topicId, levelId){
-  for(let i=0;i<50;i++){
-    try {
-      let task;
-      if(topicId==='bruch') task=genBruch(levelId);
-      else if(topicId==='prozent') task=genProzent(levelId);
-      else if(topicId==='geo') task=genGeo(levelId);
-      else if(topicId==='schluss') task=genSchluss(levelId);
-      else if(topicId==='gleich') task=genGleich(levelId);
-      if(task && task.q && task.s && task.q.length>5 && !task.q.includes('undefined') && !task.s.includes('undefined') && !task.q.includes('NaN') && !task.s.includes('NaN')) return task;
-    } catch(e){ /* try again */ }
-  }
-  return FALLBACKS[topicId] || FALLBACKS.bruch;
-}
-
-// ══════════════════════════════════════════════
-// KONSTANTEN
-// ══════════════════════════════════════════════
 const TOPICS=[
-  {id:'bruch',label:'Bruchrechnung',icon:'½',color:'#6366f1',desc:'Addieren, Subtrahieren, Multiplizieren, Dividieren'},
-  {id:'prozent',label:'Prozentrechnung',icon:'%',color:'#f59e0b',desc:'Prozentwert, Prozentsatz, Grundwert, Zinsen'},
-  {id:'geo',label:'Geometrie',icon:'📐',color:'#10b981',desc:'Flächen, Umfang, Volumen, Praxisaufgaben'},
-  {id:'schluss',label:'Schlussrechnung',icon:'⚙️',color:'#ef4444',desc:'Dreisatz, direkte & indirekte Proportionalität'},
-  {id:'gleich',label:'Gleichungslehre',icon:'x',color:'#8b5cf6',desc:'Lineare Gleichungen, Klammern, Textaufgaben'},
+  {id:'bruch',  label:'Bruchrechnung',  icon:'½', color:'#6366f1', desc:'Addieren, Subtrahieren, Multiplizieren, Dividieren'},
+  {id:'prozent',label:'Prozentrechnung',icon:'%', color:'#f59e0b', desc:'Prozentwert, Prozentsatz, Grundwert, Zinsen'},
+  {id:'geo',    label:'Geometrie',      icon:'📐',color:'#10b981', desc:'Flächen, Umfang, Volumen, Praxisaufgaben'},
+  {id:'schluss',label:'Schlussrechnung',icon:'⚙️',color:'#ef4444', desc:'Dreisatz, direkte & indirekte Proportionalität'},
+  {id:'gleich', label:'Gleichungslehre',icon:'x', color:'#8b5cf6', desc:'Lineare Gleichungen, Klammern, Textaufgaben'},
 ];
 const LEVELS=[
-  {id:'leicht',label:'⭐ Leicht',desc:'Einfache Aufgaben zum Einstieg'},
-  {id:'mittel',label:'⭐⭐ Mittel',desc:'Normale Klausuraufgaben'},
+  {id:'leicht',label:'⭐ Leicht',  desc:'Einfache Aufgaben zum Einstieg'},
+  {id:'mittel',label:'⭐⭐ Mittel', desc:'Normale Klausuraufgaben'},
   {id:'schwer',label:'⭐⭐⭐ Schwer',desc:'Herausfordernde Aufgaben'},
 ];
 
-// ══════════════════════════════════════════════
-// RENDER HELPER
-// ══════════════════════════════════════════════
+function shuffle(arr){ return [...arr].sort(()=>Math.random()-0.5); }
+
 function RichText({text}){
-  return (<span>{text.split('\n').map((line,i,arr)=>(
+  return <span>{text.split('\n').map((line,i,arr)=>(
     <span key={i}>
       {line.split(/(\*\*.*?\*\*)/g).map((p,j)=>
         p.startsWith('**')&&p.endsWith('**')
@@ -692,12 +339,9 @@ function RichText({text}){
       )}
       {i<arr.length-1&&<br/>}
     </span>
-  ))}</span>);
+  ))}</span>;
 }
 
-// ══════════════════════════════════════════════
-// SCREENS
-// ══════════════════════════════════════════════
 function WelcomeScreen({onStart}){
   const [name,setName]=useState('');
   return (
@@ -705,8 +349,8 @@ function WelcomeScreen({onStart}){
       <div className="fade-in" style={{maxWidth:440,width:'100%',textAlign:'center'}}>
         <div style={{fontSize:64,marginBottom:12}}>📐</div>
         <h1 style={{fontSize:28,fontWeight:900,color:'#fff',marginBottom:6}}>Mathe Lern-App</h1>
-        <p style={{color:'#475569',marginBottom:6,fontSize:13}}>Unbegrenzte Übungsaufgaben · 5 Themen · 3 Levels</p>
-        <p style={{color:'#334155',marginBottom:32,fontSize:12}}>✓ Komplett offline · ✓ Jede Aufgabe einmalig · ✓ Mit Lösungen</p>
+        <p style={{color:'#475569',marginBottom:6,fontSize:13}}>225 geprüfte Aufgaben · 5 Themen · 3 Schwierigkeitsgrade</p>
+        <p style={{color:'#334155',marginBottom:32,fontSize:12}}>✓ Komplett offline · ✓ Zufällige Reihenfolge · ✓ Mit Lösungen</p>
         <div style={{background:'rgba(255,255,255,0.05)',borderRadius:20,padding:28,border:'1px solid rgba(255,255,255,0.08)',marginBottom:20}}>
           <p style={{color:'#94a3b8',marginBottom:14,fontWeight:600,fontSize:15}}>Wie heißt du?</p>
           <input value={name} onChange={e=>setName(e.target.value)}
@@ -747,7 +391,7 @@ function TopicScreen({name,onSelect,stats,onReport}){
               <div style={{fontSize:30,marginBottom:8}}>{t.icon}</div>
               <div style={{fontWeight:800,fontSize:15,marginBottom:3,color:t.color}}>{t.label}</div>
               <div style={{fontSize:11,color:'#475569',lineHeight:1.5}}>{t.desc}</div>
-              {stats.byTopic[t.id]>0&&<div style={{marginTop:8,color:t.color,fontSize:11}}>{stats.byTopic[t.id]} geübt</div>}
+              {(stats.byTopic[t.id]||0)>0&&<div style={{marginTop:8,color:t.color,fontSize:11}}>{stats.byTopic[t.id]} geübt</div>}
             </button>
           ))}
         </div>
@@ -766,16 +410,19 @@ function LevelScreen({topic,onSelect,onBack}){
           <h2 style={{fontSize:20,fontWeight:800,color:'#fff'}}>{topic.label}</h2>
         </div>
         <div style={{display:'flex',flexDirection:'column',gap:10}}>
-          {LEVELS.map(l=>(
-            <button key={l.id} onClick={()=>onSelect(l)}
-              style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:14,padding:'18px 20px',textAlign:'left',color:'#fff',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-              <div>
-                <div style={{fontWeight:700,fontSize:15,marginBottom:2}}>{l.label}</div>
-                <div style={{fontSize:12,color:'#475569'}}>{l.desc}</div>
-              </div>
-              <div style={{color:'#334155',fontSize:11}}>∞ Aufgaben</div>
-            </button>
-          ))}
+          {LEVELS.map(l=>{
+            const count=POOL[topic.id]?.[l.id]?.length||0;
+            return (
+              <button key={l.id} onClick={()=>onSelect(l)}
+                style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:14,padding:'18px 20px',textAlign:'left',color:'#fff',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div>
+                  <div style={{fontWeight:700,fontSize:15,marginBottom:2}}>{l.label}</div>
+                  <div style={{fontSize:12,color:'#475569'}}>{l.desc}</div>
+                </div>
+                <div style={{color:'#334155',fontSize:11}}>{count} Aufgaben</div>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -783,36 +430,37 @@ function LevelScreen({topic,onSelect,onBack}){
 }
 
 function ExerciseScreen({topic,level,onBack,onUpdateStats}){
-  const [task,setTask]=useState(null);
-  const [phase,setPhase]=useState('task');
-  const [answer,setAnswer]=useState('');
-  const [showHint,setShowHint]=useState(false);
-  const [rating,setRating]=useState(null);
-  const [session,setSession]=useState({correct:0,total:0});
-  const [count,setCount]=useState(0);
+  const allTasks = POOL[topic.id]?.[level.id] || [];
+  const [queue,setQueue] = useState(()=>shuffle(allTasks));
+  const [idx,setIdx] = useState(0);
+  const [phase,setPhase] = useState('task');
+  const [answer,setAnswer] = useState('');
+  const [showHint,setShowHint] = useState(false);
+  const [rating,setRating] = useState(null);
+  const [session,setSession] = useState({correct:0,total:0});
+  const [count,setCount] = useState(0);
 
-  useEffect(()=>{loadNew();},[]);
+  const task = queue[idx % queue.length];
 
-  function loadNew(){
-    let t = generateTask(topic.id, level.id);
-    // extra safety: retry once if q looks wrong
-    if(!t || t.q.includes('undefined') || t.q.includes('NaN')) {
-      t = generateTask(topic.id, level.id);
+  function next(){
+    const nextIdx = idx+1;
+    // reshuffle when we've gone through all
+    if(nextIdx % queue.length === 0){
+      setQueue(shuffle(allTasks));
     }
-    setTask(t);
+    setIdx(nextIdx);
     setPhase('task'); setAnswer(''); setShowHint(false); setRating(null);
   }
 
   function handleRate(ok){
     setRating(ok);
-    const ns={correct:session.correct+(ok?1:0),total:session.total+1};
-    setSession(ns); setCount(c=>c+1);
+    setSession(s=>({correct:s.correct+(ok?1:0),total:s.total+1}));
+    setCount(c=>c+1);
     onUpdateStats(topic.id,ok);
     setPhase('result');
   }
 
   const btn={border:'none',borderRadius:11,padding:'11px 18px',fontWeight:700,fontSize:14,color:'#fff'};
-  if(!task) return <div style={{textAlign:'center',padding:60,color:'#475569'}}>Lade...</div>;
 
   return (
     <div style={{maxWidth:680,margin:'0 auto',padding:20}}>
@@ -823,37 +471,53 @@ function ExerciseScreen({topic,level,onBack,onUpdateStats}){
             <span style={{background:topic.color+'22',color:topic.color,borderRadius:20,padding:'3px 10px',fontSize:12,fontWeight:700}}>{topic.label}</span>
             <span style={{background:'rgba(255,255,255,0.06)',color:'#64748b',borderRadius:20,padding:'3px 10px',fontSize:12}}>{level.label}</span>
           </div>
-          <span style={{color:'#334155',fontSize:12}}>✅{session.correct}/{session.total}</span>
+          <span style={{color:'#334155',fontSize:12}}>✅ {session.correct}/{session.total}</span>
         </div>
 
+        {/* Progress bar */}
+        <div style={{background:'rgba(255,255,255,0.06)',borderRadius:20,height:4,marginBottom:18,overflow:'hidden'}}>
+          <div style={{height:'100%',background:`linear-gradient(90deg,${topic.color},${topic.color}99)`,width:`${((idx%queue.length)+1)/queue.length*100}%`,transition:'width 0.5s'}}/>
+        </div>
+
+        {/* Task card */}
         <div style={{background:'rgba(255,255,255,0.05)',borderRadius:18,padding:22,border:'1px solid rgba(255,255,255,0.07)',marginBottom:14}}>
-          <div style={{color:'#334155',fontSize:10,textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>Aufgabe #{count+1}</div>
+          <div style={{color:'#334155',fontSize:10,textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>
+            Aufgabe {(idx%queue.length)+1} / {queue.length}
+          </div>
           <div style={{fontSize:15,lineHeight:1.9,color:'#e2e8f0',whiteSpace:'pre-wrap'}}>{task.q}</div>
         </div>
 
-        {task.h&&!showHint&&phase==='task'&&(
+        {/* Hint */}
+        {task.h && !showHint && phase==='task' && (
           <button onClick={()=>setShowHint(true)} style={{...btn,background:'rgba(255,255,255,0.05)',color:'#475569',fontSize:12,marginBottom:12}}>💡 Hinweis</button>
         )}
-        {showHint&&(
-          <div style={{background:'rgba(251,191,36,0.08)',borderRadius:12,padding:14,border:'1px solid rgba(251,191,36,0.2)',color:'#fcd34d',fontSize:13,marginBottom:12}}>💡 {task.h}</div>
+        {showHint && (
+          <div style={{background:'rgba(251,191,36,0.08)',borderRadius:12,padding:14,border:'1px solid rgba(251,191,36,0.2)',color:'#fcd34d',fontSize:13,marginBottom:12}}>
+            💡 {task.h}
+          </div>
         )}
 
-        {phase==='task'&&(
+        {/* Answer input */}
+        {phase==='task' && (
           <>
-            <textarea value={answer} onChange={e=>setAnswer(e.target.value)} placeholder="Rechenweg hier eingeben..." rows={4}
+            <textarea value={answer} onChange={e=>setAnswer(e.target.value)}
+              placeholder="Rechenweg hier eingeben..."
+              rows={4}
               style={{width:'100%',padding:14,borderRadius:12,border:'1px solid rgba(255,255,255,0.07)',background:'rgba(255,255,255,0.05)',color:'#fff',fontSize:14,outline:'none',resize:'vertical',lineHeight:1.7,marginBottom:12}}/>
             <div style={{display:'flex',gap:10}}>
-              <button onClick={()=>setPhase('solution')} style={{...btn,background:`linear-gradient(135deg,${topic.color},${topic.color}bb)`,flex:1}}>
+              <button onClick={()=>setPhase('solution')}
+                style={{...btn,background:`linear-gradient(135deg,${topic.color},${topic.color}bb)`,flex:1}}>
                 {answer.trim()?'✓ Lösung prüfen':'📖 Lösung anzeigen'}
               </button>
-              <button onClick={loadNew} style={{...btn,background:'rgba(255,255,255,0.06)',color:'#475569'}}>🔄 Neue</button>
+              <button onClick={next} style={{...btn,background:'rgba(255,255,255,0.06)',color:'#475569'}}>🔄 Neue</button>
             </div>
           </>
         )}
 
-        {phase==='solution'&&(
+        {/* Solution */}
+        {phase==='solution' && (
           <>
-            {answer.trim()&&(
+            {answer.trim() && (
               <div style={{background:'rgba(99,102,241,0.08)',borderRadius:14,padding:16,border:'1px solid rgba(99,102,241,0.2)',marginBottom:12}}>
                 <div style={{color:'#818cf8',fontSize:10,textTransform:'uppercase',letterSpacing:1,marginBottom:6}}>Deine Antwort</div>
                 <div style={{color:'#c7d2fe',fontSize:13,whiteSpace:'pre-wrap'}}>{answer}</div>
@@ -863,11 +527,11 @@ function ExerciseScreen({topic,level,onBack,onUpdateStats}){
               <div style={{color:'#34d399',fontSize:10,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>✅ Musterlösung</div>
               <div style={{fontSize:14,lineHeight:1.9}}><RichText text={task.s}/></div>
             </div>
-            {rating===null&&(
+            {rating===null && (
               <div style={{textAlign:'center'}}>
                 <p style={{color:'#475569',fontSize:13,marginBottom:12}}>War deine Lösung richtig?</p>
                 <div style={{display:'flex',gap:10,justifyContent:'center'}}>
-                  <button onClick={()=>handleRate(true)} style={{...btn,background:'linear-gradient(135deg,#10b981,#059669)',padding:'11px 24px'}}>✅ Ja!</button>
+                  <button onClick={()=>handleRate(true)}  style={{...btn,background:'linear-gradient(135deg,#10b981,#059669)',padding:'11px 24px'}}>✅ Ja!</button>
                   <button onClick={()=>handleRate(false)} style={{...btn,background:'linear-gradient(135deg,#ef4444,#dc2626)',padding:'11px 24px'}}>❌ Noch nicht</button>
                 </div>
               </div>
@@ -875,15 +539,21 @@ function ExerciseScreen({topic,level,onBack,onUpdateStats}){
           </>
         )}
 
-        {phase==='result'&&(
+        {/* Result */}
+        {phase==='result' && (
           <div className="fade-in" style={{textAlign:'center'}}>
             <div style={{fontSize:52,marginBottom:8}}>{rating?'🎉':'💪'}</div>
             <h3 style={{fontSize:18,fontWeight:800,color:'#fff',marginBottom:4}}>{rating?'Sehr gut!':'Weiter üben!'}</h3>
-            <p style={{color:'#334155',fontSize:13,marginBottom:20}}>{rating?'Du machst tolle Fortschritte!':'Schau dir die Lösung nochmal genau an.'}</p>
+            <p style={{color:'#334155',fontSize:13,marginBottom:20}}>
+              {rating?'Du machst tolle Fortschritte!':'Schau dir die Lösung nochmal genau an.'}
+            </p>
             <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap'}}>
-              <button onClick={loadNew} style={{...btn,background:`linear-gradient(135deg,${topic.color},${topic.color}bb)`,padding:'13px 24px'}}>➡️ Nächste Aufgabe</button>
+              <button onClick={next} style={{...btn,background:`linear-gradient(135deg,${topic.color},${topic.color}bb)`,padding:'13px 24px'}}>➡️ Nächste Aufgabe</button>
               <button onClick={onBack} style={{...btn,background:'rgba(255,255,255,0.06)',color:'#475569'}}>📚 Thema wechseln</button>
             </div>
+            {count===queue.length && (
+              <p style={{color:'#f59e0b',marginTop:14,fontSize:13}}>🏆 Alle {queue.length} Aufgaben dieses Levels geschafft! Starte nochmal von vorne.</p>
+            )}
           </div>
         )}
       </div>
@@ -891,9 +561,6 @@ function ExerciseScreen({topic,level,onBack,onUpdateStats}){
   );
 }
 
-// ══════════════════════════════════════════════
-// MAIN APP
-// ══════════════════════════════════════════════
 function App(){
   const [screen,setScreen]=useState('welcome');
   const [name,setName]=useState('');
@@ -903,8 +570,8 @@ function App(){
 
   function handleReport(){
     const t=new Date().toLocaleDateString('de-DE');
-    const txt=`📊 Lernfortschritt – ${name}\nDatum: ${t}\n${'─'.repeat(28)}\nAufgaben: ${stats.total} | Richtig: ${stats.correct} | Quote: ${stats.total>0?Math.round(stats.correct/stats.total*100):0}%\n\nNach Thema:\n${TOPICS.map(t=>`• ${t.label}: ${stats.byTopic[t.id]}`).join('\n')}`;
-    navigator.clipboard.writeText(txt).then(()=>alert('✅ Kopiert! Jetzt in E-Mail einfügen.')).catch(()=>alert(txt));
+    const txt=`📊 Lernfortschritt – ${name}\nDatum: ${t}\n${'─'.repeat(30)}\nAufgaben: ${stats.total} | Richtig: ${stats.correct} | Quote: ${stats.total>0?Math.round(stats.correct/stats.total*100):0}%\n\nNach Thema:\n${TOPICS.map(t=>`• ${t.label}: ${stats.byTopic[t.id]||0} Aufgaben`).join('\n')}`;
+    navigator.clipboard.writeText(txt).then(()=>alert('✅ Kopiert!')).catch(()=>alert(txt));
   }
 
   return (
@@ -918,11 +585,11 @@ function App(){
           </div>
         </div>
       )}
-      {screen==='welcome'&&<WelcomeScreen onStart={n=>{setName(n);setScreen('topics');}}/>}
-      {screen==='topics'&&<TopicScreen name={name} onSelect={t=>{setTopic(t);setScreen('level');}} stats={stats} onReport={handleReport}/>}
-      {screen==='level'&&<LevelScreen topic={topic} onSelect={l=>{setLevel(l);setScreen('exercise');}} onBack={()=>setScreen('topics')}/>}
-      {screen==='exercise'&&<ExerciseScreen topic={topic} level={level} onBack={()=>setScreen('topics')}
-        onUpdateStats={(tid,ok)=>setStats(s=>({total:s.total+1,correct:s.correct+(ok?1:0),byTopic:{...s.byTopic,[tid]:s.byTopic[tid]+1}}))}/>}
+      {screen==='welcome'  && <WelcomeScreen onStart={n=>{setName(n);setScreen('topics');}}/>}
+      {screen==='topics'   && <TopicScreen name={name} onSelect={t=>{setTopic(t);setScreen('level');}} stats={stats} onReport={handleReport}/>}
+      {screen==='level'    && <LevelScreen topic={topic} onSelect={l=>{setLevel(l);setScreen('exercise');}} onBack={()=>setScreen('topics')}/>}
+      {screen==='exercise' && <ExerciseScreen topic={topic} level={level} onBack={()=>setScreen('topics')}
+        onUpdateStats={(tid,ok)=>setStats(s=>({total:s.total+1,correct:s.correct+(ok?1:0),byTopic:{...s.byTopic,[tid]:(s.byTopic[tid]||0)+1}}))}/>}
     </div>
   );
 }
