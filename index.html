@@ -378,10 +378,11 @@ function genGeo(level){
   }
   if(type==='zusammengesetzt'){
     const a=rnd(8,16); const b=rnd(4,10); const h=rnd(3,8);
-    const rect=a*b; const tri=a*h/2;
-    return { q:`Eine Fläche besteht aus einem Rechteck (${a}m × ${b}m) und\ndarüber einem Dreieck mit Grundlinie ${a}m und Höhe ${h}m.\n\na) Berechne die Gesamtfläche.\nb) Soll diese Fläche begrünt werden. 1m² Rasen kostet ${rnd(3,8)} €. Wie viel kostet das?`,
+    const preis=rnd(3,8);
+    const rect=a*b; const tri=a*h/2; const gesamt=rect+tri;
+    return { q:`Eine Fläche besteht aus einem Rechteck (${a}m × ${b}m) und\ndarüber einem Dreieck mit Grundlinie ${a}m und Höhe ${h}m.\n\na) Berechne die Gesamtfläche.\nb) Die Fläche soll begrünt werden. 1m² Rasen kostet ${preis} €. Wie viel kostet das?`,
       h:`Rechteck + Dreieck separat berechnen, dann addieren.`,
-      s:`a) Rechteck: ${a}·${b} = ${rect} m²\n   Dreieck: ${a}·${h}/2 = ${tri} m²\n   **Gesamt: ${rect+tri} m²** ✓\nb) Kosten: ${rect+tri}·${rnd(3,8)} = **${(rect+tri)*rnd(3,8)} €** ✓`};
+      s:`a) Rechteck: ${a}·${b} = ${rect} m²\n   Dreieck: ${a}·${h}/2 = ${tri} m²\n   **Gesamt: ${gesamt} m²** ✓\nb) Kosten: ${gesamt} · ${preis} = **${gesamt*preis} €** ✓`};
   }
   if(type==='dach'){
     const l=rnd(8,14); const b=rnd(5,9); const seite=rnd(4,7);
@@ -638,20 +639,28 @@ function genGleich(level){
   return genGleich(level);
 }
 
-// Master generator
+// Fallback-Aufgaben falls Generator fehlschlägt
+const FALLBACKS = {
+  bruch:  { q:'Berechne: 3/4 + 1/4', h:'Gleiche Nenner – Zähler addieren.', s:'3/4 + 1/4 = 4/4 = **1** ✓' },
+  prozent:{ q:'Berechne: 20% von 150', h:'W = G · p/100', s:'150 · 20/100 = **30** ✓' },
+  geo:    { q:'Rechteck: 6 cm × 4 cm\na) Fläche?\nb) Umfang?', h:'A = a·b, U = 2·(a+b)', s:'a) 6·4 = **24 cm²** ✓\nb) 2·(6+4) = **20 cm** ✓' },
+  schluss:{ q:'4 Arbeiter brauchen 12 Tage.\nWie lange brauchen 6 Arbeiter?', h:'Gesamtarbeit = 4·12', s:'Gesamt = 48 AH\n6 Arbeiter: 48/6 = **8 Tage** ✓' },
+  gleich: { q:'Löse: 3x + 5 = 20', h:'Schritt 1: -5, Schritt 2: ÷3', s:'3x = 15 → **x = 5** ✓' },
+};
+
 function generateTask(topicId, levelId){
-  let task;
-  for(let i=0;i<20;i++){
+  for(let i=0;i<50;i++){
     try {
+      let task;
       if(topicId==='bruch') task=genBruch(levelId);
       else if(topicId==='prozent') task=genProzent(levelId);
       else if(topicId==='geo') task=genGeo(levelId);
       else if(topicId==='schluss') task=genSchluss(levelId);
       else if(topicId==='gleich') task=genGleich(levelId);
-      if(task&&task.q&&task.s) return task;
-    } catch(e){}
+      if(task && task.q && task.s && task.q.length>5 && !task.q.includes('undefined') && !task.s.includes('undefined') && !task.q.includes('NaN') && !task.s.includes('NaN')) return task;
+    } catch(e){ /* try again */ }
   }
-  return { q:'Aufgabe konnte nicht generiert werden. Bitte neue Aufgabe laden.', h:'', s:'Bitte lade eine neue Aufgabe.' };
+  return FALLBACKS[topicId] || FALLBACKS.bruch;
 }
 
 // ══════════════════════════════════════════════
@@ -785,7 +794,12 @@ function ExerciseScreen({topic,level,onBack,onUpdateStats}){
   useEffect(()=>{loadNew();},[]);
 
   function loadNew(){
-    setTask(generateTask(topic.id,level.id));
+    let t = generateTask(topic.id, level.id);
+    // extra safety: retry once if q looks wrong
+    if(!t || t.q.includes('undefined') || t.q.includes('NaN')) {
+      t = generateTask(topic.id, level.id);
+    }
+    setTask(t);
     setPhase('task'); setAnswer(''); setShowHint(false); setRating(null);
   }
 
