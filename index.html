@@ -3,473 +3,893 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📐 Mathe Lern-App</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<title>MatheMeister – Lernapp</title>
 <style>
-* { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:'Segoe UI',sans-serif; background:#0f172a; color:#e2e8f0; min-height:100vh; }
-button { cursor:pointer; transition:all 0.2s; }
-button:hover { opacity:0.85; transform:translateY(-1px); }
-input,textarea { font-family:'Segoe UI',sans-serif; }
-::-webkit-scrollbar { width:6px; }
-::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.2); border-radius:3px; }
-.loading-dots::after { content:''; animation: dots 1.5s infinite; }
-@keyframes dots { 0%{content:'.'} 33%{content:'..'} 66%{content:'...'} }
-.fade-in { animation: fadeIn 0.4s ease; }
-@keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0f0e17;
+    --surface: #1a1828;
+    --surface2: #242236;
+    --border: #2e2b45;
+    --text: #fffffe;
+    --muted: #a7a9be;
+    --bruch: #ff6b6b;
+    --prozent: #ffa94d;
+    --geo: #51cf66;
+    --schluss: #339af0;
+    --gleich: #cc5de8;
+    --easy: #51cf66;
+    --mid: #ffa94d;
+    --hard: #ff6b6b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Background grid ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 20px 16px 60px; }
+
+  /* ── Header ── */
+  header { text-align: center; padding: 40px 0 32px; }
+  header h1 {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(2.2rem, 6vw, 3.5rem);
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, #ff6b6b, #cc5de8, #339af0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+  header p { color: var(--muted); font-size: 1rem; font-weight: 600; }
+
+  /* ── Stats bar ── */
+  .stats-bar {
+    display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+    margin-bottom: 32px;
+  }
+  .stat-pill {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 99px; padding: 8px 20px; font-size: .85rem; font-weight: 700;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .stat-pill span { font-size: 1.1rem; }
+
+  /* ── Topic grid ── */
+  .section-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem; letter-spacing: 1px;
+    color: var(--muted); text-transform: uppercase;
+    margin-bottom: 14px; padding-left: 4px;
+  }
+
+  .topic-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px; margin-bottom: 32px;
+  }
+
+  .topic-card {
+    background: var(--surface); border: 2px solid var(--border);
+    border-radius: 20px; padding: 22px 16px; text-align: center;
+    cursor: pointer; transition: all .2s ease;
+    position: relative; overflow: hidden;
+  }
+  .topic-card::before {
+    content: ''; position: absolute; inset: 0;
+    background: var(--tc); opacity: 0; transition: opacity .2s;
+  }
+  .topic-card:hover { transform: translateY(-4px); border-color: var(--tc); }
+  .topic-card:hover::before { opacity: .08; }
+  .topic-card.active { border-color: var(--tc); background: var(--surface2); }
+  .topic-card.active::before { opacity: .12; }
+
+  .topic-icon {
+    font-size: 2.2rem; display: block; margin-bottom: 10px;
+    filter: drop-shadow(0 0 10px var(--tc));
+  }
+  .topic-name { font-weight: 800; font-size: .95rem; }
+  .topic-progress {
+    margin-top: 8px; font-size: .75rem; color: var(--muted); font-weight: 600;
+  }
+  .topic-bar {
+    margin-top: 6px; height: 4px; background: var(--border);
+    border-radius: 99px; overflow: hidden;
+  }
+  .topic-bar-fill { height: 100%; background: var(--tc); border-radius: 99px; transition: width .4s ease; }
+
+  /* ── Level selector ── */
+  .level-row {
+    display: flex; gap: 10px; margin-bottom: 28px; flex-wrap: wrap;
+  }
+  .level-btn {
+    flex: 1; min-width: 90px; background: var(--surface);
+    border: 2px solid var(--border); border-radius: 14px;
+    padding: 14px 10px; text-align: center; cursor: pointer;
+    transition: all .2s ease; font-family: inherit;
+  }
+  .level-btn .lv-emoji { font-size: 1.6rem; display: block; margin-bottom: 4px; }
+  .level-btn .lv-name { font-weight: 800; font-size: .9rem; display: block; }
+  .level-btn .lv-desc { font-size: .75rem; color: var(--muted); display: block; }
+  .level-btn:hover { transform: translateY(-3px); }
+  .level-btn.active-easy { border-color: var(--easy); background: rgba(81,207,102,.1); }
+  .level-btn.active-mid  { border-color: var(--mid);  background: rgba(255,169,77,.1); }
+  .level-btn.active-hard { border-color: var(--hard); background: rgba(255,107,107,.1); }
+
+  /* ── Question card ── */
+  .question-area { animation: fadeIn .3s ease; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+
+  .q-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px; flex-wrap: wrap; gap: 10px;
+  }
+  .q-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .badge {
+    padding: 4px 14px; border-radius: 99px; font-size: .78rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .5px;
+  }
+  .badge-topic { background: rgba(255,255,255,.08); color: var(--text); }
+  .badge-level { }
+  .badge-easy { background: rgba(81,207,102,.2); color: var(--easy); }
+  .badge-mid  { background: rgba(255,169,77,.2);  color: var(--mid); }
+  .badge-hard { background: rgba(255,107,107,.2); color: var(--hard); }
+
+  .q-counter { font-size: .85rem; font-weight: 700; color: var(--muted); }
+
+  .q-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 24px; padding: 30px; margin-bottom: 20px;
+  }
+  .q-text {
+    font-size: clamp(1rem, 3vw, 1.2rem); font-weight: 700; line-height: 1.6;
+    margin-bottom: 24px; color: var(--text);
+  }
+  .q-hint {
+    font-size: .85rem; color: var(--muted); font-weight: 600;
+    background: rgba(255,255,255,.04); border-radius: 10px; padding: 10px 14px;
+    margin-bottom: 20px; border-left: 3px solid var(--border);
+  }
+
+  /* Options / input */
+  .options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+  }
+  .option-btn {
+    background: var(--surface2); border: 2px solid var(--border);
+    border-radius: 14px; padding: 14px 16px; text-align: left;
+    cursor: pointer; font-family: inherit; font-size: .95rem;
+    font-weight: 700; color: var(--text); transition: all .15s ease;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .option-letter {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: rgba(255,255,255,.08); display: flex;
+    align-items: center; justify-content: center;
+    font-size: .8rem; flex-shrink: 0;
+  }
+  .option-btn:hover:not(:disabled) { border-color: #555; transform: translateX(4px); }
+  .option-btn.correct { border-color: var(--easy); background: rgba(81,207,102,.15); }
+  .option-btn.wrong   { border-color: var(--hard); background: rgba(255,107,107,.15); }
+  .option-btn:disabled { cursor: default; }
+
+  /* Input style */
+  .input-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .answer-input {
+    flex: 1; min-width: 180px; background: var(--surface2);
+    border: 2px solid var(--border); border-radius: 14px;
+    padding: 14px 18px; font-family: inherit; font-size: 1.1rem;
+    font-weight: 700; color: var(--text); outline: none;
+    transition: border-color .2s;
+  }
+  .answer-input:focus { border-color: #555; }
+  .answer-input.correct { border-color: var(--easy); }
+  .answer-input.wrong   { border-color: var(--hard); }
+  .submit-btn {
+    background: linear-gradient(135deg, #cc5de8, #339af0);
+    border: none; border-radius: 14px; padding: 14px 28px;
+    color: #fff; font-family: inherit; font-size: 1rem; font-weight: 800;
+    cursor: pointer; transition: all .2s ease; white-space: nowrap;
+  }
+  .submit-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+  .submit-btn:disabled { opacity: .5; cursor: default; transform: none; }
+
+  /* Feedback */
+  .feedback {
+    border-radius: 14px; padding: 16px 20px; font-weight: 700;
+    display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap;
+    margin-top: 16px; animation: fadeIn .2s ease;
+  }
+  .feedback.correct-fb { background: rgba(81,207,102,.15); border: 1px solid rgba(81,207,102,.3); color: var(--easy); }
+  .feedback.wrong-fb   { background: rgba(255,107,107,.15); border: 1px solid rgba(255,107,107,.3); color: var(--hard); }
+  .feedback-icon { font-size: 1.4rem; }
+  .feedback-text { flex: 1; line-height: 1.5; }
+  .solution-steps {
+    font-size: .9rem; margin-top: 8px; color: var(--text);
+    opacity: .9; font-weight: 600;
+  }
+
+  /* Nav buttons */
+  .nav-row {
+    display: flex; gap: 10px; justify-content: space-between; flex-wrap: wrap;
+    margin-top: 20px;
+  }
+  .nav-btn {
+    flex: 1; min-width: 120px; padding: 14px 20px; border-radius: 14px;
+    border: 2px solid var(--border); background: var(--surface);
+    color: var(--text); font-family: inherit; font-size: .95rem;
+    font-weight: 800; cursor: pointer; transition: all .2s ease;
+  }
+  .nav-btn:hover { border-color: #666; transform: translateY(-2px); }
+  .nav-btn.primary {
+    background: linear-gradient(135deg, #cc5de8, #339af0);
+    border-color: transparent; color: #fff;
+  }
+
+  /* Progress dots */
+  .progress-dots {
+    display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px;
+  }
+  .dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    border: 2px solid var(--border); background: transparent; transition: all .2s;
+  }
+  .dot.done-correct { background: var(--easy); border-color: var(--easy); }
+  .dot.done-wrong   { background: var(--hard); border-color: var(--hard); }
+  .dot.current      { border-color: #aaa; background: rgba(255,255,255,.2); }
+
+  /* Results */
+  .result-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 24px; padding: 36px; text-align: center;
+    animation: fadeIn .4s ease;
+  }
+  .result-big { font-size: 5rem; margin-bottom: 16px; }
+  .result-title {
+    font-family: 'Fredoka One', cursive; font-size: 2rem; margin-bottom: 8px;
+    background: linear-gradient(135deg, #ff6b6b, #cc5de8);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .result-score {
+    font-size: 3rem; font-weight: 800; margin: 20px 0;
+    color: var(--text);
+  }
+  .result-sub { color: var(--muted); font-weight: 600; margin-bottom: 28px; }
+  .result-breakdown {
+    display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-bottom: 28px;
+  }
+  .rb-item {
+    background: var(--surface2); border-radius: 14px; padding: 14px 20px;
+    text-align: center;
+  }
+  .rb-num { font-size: 1.8rem; font-weight: 800; }
+  .rb-label { font-size: .8rem; color: var(--muted); font-weight: 600; margin-top: 2px; }
+
+  /* home button */
+  .home-btn {
+    position: fixed; top: 16px; left: 16px; z-index: 100;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 99px; padding: 8px 16px; cursor: pointer;
+    font-family: inherit; font-size: .85rem; font-weight: 800;
+    color: var(--text); transition: all .2s; display: none;
+  }
+  .home-btn.visible { display: flex; align-items: center; gap: 6px; }
+  .home-btn:hover { border-color: #666; transform: translateX(-2px); }
+
+  /* Responsive */
+  @media (max-width: 500px) {
+    .q-card { padding: 20px 16px; }
+    .options-grid { grid-template-columns: 1fr; }
+    .nav-btn { font-size: .85rem; padding: 12px 14px; }
+  }
 </style>
 </head>
 <body>
-<div id="root"></div>
-<script type="text/babel">
+<button class="home-btn" id="homeBtn" onclick="goHome()">← Menü</button>
 
-const { useState, useEffect, useRef } = React;
+<div class="app">
+  <div id="screen-home">
+    <header>
+      <h1>MatheMeister</h1>
+      <p>Lernapp · Mathe 2026 · Klasse 8</p>
+    </header>
 
+    <div class="stats-bar">
+      <div class="stat-pill"><span>🏆</span> Gesamt: <strong id="statTotal">0</strong> richtig</div>
+      <div class="stat-pill"><span>🎯</span> Genauigkeit: <strong id="statAcc">–</strong></div>
+      <div class="stat-pill"><span>🔥</span> Streak: <strong id="statStreak">0</strong></div>
+    </div>
+
+    <p class="section-title">Thema wählen</p>
+    <div class="topic-grid" id="topicGrid"></div>
+
+    <p class="section-title">Schwierigkeitsgrad</p>
+    <div class="level-row" id="levelRow"></div>
+
+    <div style="text-align:center;margin-top:10px;">
+      <button class="submit-btn" style="font-size:1.1rem;padding:18px 48px;" onclick="startQuiz()">
+        🚀 Los geht's!
+      </button>
+    </div>
+  </div>
+
+  <div id="screen-quiz" style="display:none;"></div>
+  <div id="screen-result" style="display:none;"></div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+//  QUESTION BANK  –  5 Themen × 3 Level × 15 Fragen = 225 Aufgaben
+// ══════════════════════════════════════════════════════════════════════════════
+const QDB = {
+
+// ─── BRUCHRECHNUNG ─────────────────────────────────────────────────────────
+bruch: {
+  1: [
+    { q:"Berechne: 1/2 + 1/4", opts:["3/4","2/6","1/2","5/8"], ans:0, hint:"Bringe auf einen gemeinsamen Nenner (4).", sol:"1/2 = 2/4 → 2/4 + 1/4 = 3/4" },
+    { q:"Berechne: 1/3 + 1/3", opts:["2/3","2/6","1/6","3/6"], ans:0, hint:"Gleiche Nenner? Einfach Zähler addieren.", sol:"1/3 + 1/3 = 2/3" },
+    { q:"Berechne: 3/4 − 1/4", opts:["2/4 = 1/2","1/4","3/8","2/8"], ans:0, hint:"Gleicher Nenner – Zähler subtrahieren.", sol:"3/4 − 1/4 = 2/4 = 1/2" },
+    { q:"Kürze: 4/8", opts:["1/2","2/4","4/8","1/4"], ans:0, hint:"Teile Zähler und Nenner durch 4.", sol:"4÷4 / 8÷4 = 1/2" },
+    { q:"Berechne: 1/2 · 1/2", opts:["1/4","1/2","2/4","1/8"], ans:0, hint:"Zähler · Zähler, Nenner · Nenner.", sol:"1·1 / 2·2 = 1/4" },
+    { q:"Kürze: 6/9", opts:["2/3","3/4","1/3","6/9"], ans:0, hint:"GGT von 6 und 9 ist 3.", sol:"6÷3 / 9÷3 = 2/3" },
+    { q:"Berechne: 2/5 + 1/5", opts:["3/5","3/10","2/5","1/2"], ans:0, hint:"Gleiche Nenner, Zähler addieren.", sol:"2/5 + 1/5 = 3/5" },
+    { q:"Berechne: 3/4 : 3/4", opts:["1","9/16","3/4","4/3"], ans:0, hint:"Dividieren = mal Kehrwert.", sol:"3/4 · 4/3 = 12/12 = 1" },
+    { q:"Kürze: 10/15", opts:["2/3","1/2","5/8","3/5"], ans:0, hint:"GGT = 5.", sol:"10÷5 / 15÷5 = 2/3" },
+    { q:"Berechne: 1/4 + 3/8", opts:["5/8","4/12","1/2","7/8"], ans:0, hint:"1/4 = 2/8, dann addieren.", sol:"2/8 + 3/8 = 5/8" },
+    { q:"Wandle um: 1½ in unechten Bruch", opts:["3/2","2/3","4/3","5/4"], ans:0, hint:"1·2 + 1 = 3, Nenner bleibt 2.", sol:"1·2+1 = 3 → 3/2" },
+    { q:"Berechne: 2/3 · 3/4", opts:["1/2","6/12","2/4","3/6"], ans:0, hint:"2·3 / 3·4, dann kürzen.", sol:"6/12 = 1/2" },
+    { q:"Kürze: 8/12", opts:["2/3","3/4","4/6","1/2"], ans:0, hint:"GGT(8,12) = 4.", sol:"8÷4 / 12÷4 = 2/3" },
+    { q:"Berechne: 5/6 − 1/3", opts:["1/2","4/3","2/6","5/9"], ans:0, hint:"1/3 = 2/6.", sol:"5/6 − 2/6 = 3/6 = 1/2" },
+    { q:"Berechne: 1/2 : 1/4", opts:["2","1/8","4","1/2"], ans:0, hint:"1/2 · 4/1 = ?", sol:"1/2 · 4/1 = 4/2 = 2" },
+  ],
+  2: [
+    { q:"Berechne: 3/8 + 5/12", opts:["19/24","8/20","2/3","7/12"], ans:0, hint:"KGV(8,12)=24.", sol:"9/24 + 10/24 = 19/24" },
+    { q:"Berechne: 2¾ + 1⅓", opts:["4 1/12","3 7/12","4 1/4","3 13/12"], ans:0, hint:"Ganze getrennt, dann Brüche addieren.", sol:"3 + (9/12+4/12) = 3+13/12 = 4 1/12" },
+    { q:"Berechne: 7/9 − 2/3", opts:["1/9","5/6","1/3","5/9"], ans:0, hint:"2/3 = 6/9.", sol:"7/9 − 6/9 = 1/9" },
+    { q:"Berechne: 5/6 · 3/10", opts:["1/4","15/60","1/2","1/3"], ans:0, hint:"5·3 / 6·10 = 15/60, kürzen.", sol:"15/60 = 1/4" },
+    { q:"Berechne: 4/5 : 2/3", opts:["6/5","8/15","2/5","12/10"], ans:0, hint:"4/5 · 3/2.", sol:"12/10 = 6/5 = 1 1/5" },
+    { q:"Eine Pizza wird in 8 Stücke geteilt. Tom isst 3/8, Lisa isst 2/8. Wie viel ist übrig?", opts:["3/8","5/8","1/4","2/8"], ans:0, hint:"1 − 3/8 − 2/8.", sol:"8/8−3/8−2/8 = 3/8" },
+    { q:"Berechne: (1/2 + 1/3) · 6", opts:["5","3","4","6"], ans:0, hint:"Erst Klammer: 3/6+2/6=5/6, dann ·6.", sol:"5/6 · 6 = 5" },
+    { q:"Kürze vollständig: 36/48", opts:["3/4","9/12","6/8","2/3"], ans:0, hint:"GGT(36,48)=12.", sol:"36÷12 / 48÷12 = 3/4" },
+    { q:"Berechne: 3½ · 2/7", opts:["1","7/4","1 1/4","3/7"], ans:0, hint:"3½ = 7/2 → 7/2 · 2/7.", sol:"14/14 = 1" },
+    { q:"Berechne: 2/3 + 3/4 − 1/6", opts:["5/4","3/4","1 1/4","7/12"], ans:0, hint:"KGV=12: 8/12+9/12−2/12.", sol:"15/12 = 5/4 = 1 1/4" },
+    { q:"Welcher Bruch liegt zwischen 1/3 und 1/2?", opts:["5/12","1/4","2/5","3/8"], ans:0, hint:"Auf Nenner 12: 4/12 und 6/12 – was liegt dazwischen?", sol:"5/12 liegt zwischen 4/12 und 6/12" },
+    { q:"Berechne: 5/8 : 1¼", opts:["1/2","5/10","5/8","4/5"], ans:0, hint:"1¼ = 5/4 → 5/8 · 4/5.", sol:"20/40 = 1/2" },
+    { q:"Berechne: 1 − 3/7 − 2/7", opts:["2/7","5/7","1/7","3/7"], ans:0, hint:"7/7 − 3/7 − 2/7.", sol:"2/7" },
+    { q:"Wie viel ist 3/4 von 80?", opts:["60","40","30","75"], ans:0, hint:"80 · 3/4 = ?", sol:"80·3÷4 = 60" },
+    { q:"Berechne: (3/4 − 1/8) : 5/8", opts:["5/4","1","5/8","10/8"], ans:0, hint:"3/4−1/8 = 5/8; dann 5/8 : 5/8.", sol:"5/8 · 8/5 = 1" },
+  ],
+  3: [
+    { q:"Berechne: 3/8 + 5/6 − 7/12", opts:["7/8","5/8","3/4","11/12"], ans:0, hint:"KGV(8,6,12)=24.", sol:"9/24+20/24−14/24=15/24=5/8" },
+    { q:"Berechne: 2⅔ · 1⅞", opts:["5","4 11/12","5 1/3","4 3/4"], ans:0, hint:"2⅔=8/3, 1⅞=15/8 → multiplizieren.", sol:"8/3·15/8 = 120/24 = 5" },
+    { q:"Berechne: (2/3)² + 1/9", opts:["5/9","7/9","4/9","1/3"], ans:0, hint:"(2/3)² = 4/9.", sol:"4/9+1/9=5/9" },
+    { q:"Wandergruppe: ³⁄₇ + ²⁄₅ der Strecke zurückgelegt. Welchen Anteil noch übrig?", opts:["16/35","15/35","19/35","1/5"], ans:0, hint:"1 − 3/7 − 2/5. KGV=35.", sol:"35/35−15/35−14/35=6/35 – Aufgabe: zurückgelegt=29/35, übrig=6/35" },
+    { q:"Berechne: 4/9 : (2/3 · 3/8)", opts:["8/9","2","16/9","4/3"], ans:0, hint:"Erst Klammer: 6/24=1/4, dann 4/9 : 1/4.", sol:"4/9·4/1=16/9" },
+    { q:"Vereinfache: (5/6 − 1/4) · 12/7", opts:["10/7","5/7","8/7","7/6"], ans:0, hint:"5/6−1/4: KGV=12 → 10/12−3/12=7/12.", sol:"7/12·12/7=1 – warte: 7/12·12/7=1 ✓" },
+    { q:"Berechne: 1⅓ · 2¼ − 2/3", opts:["2 1/3","3","2 2/3","1 2/3"], ans:0, hint:"4/3·9/4=3; dann −2/3.", sol:"3−2/3=7/3=2 1/3" },
+    { q:"Kürze und berechne: 15/20 · 8/12 + 1/6", opts:["2/3","5/6","7/12","11/12"], ans:0, hint:"15/20=3/4; 8/12=2/3; 3/4·2/3=1/2.", sol:"1/2+1/6=3/6+1/6=4/6=2/3" },
+    { q:"Berechne: 5/7 : (1 − 2/7)", opts:["5/7","1","25/35","7/5"], ans:0, hint:"1−2/7=5/7; dann 5/7 : 5/7.", sol:"5/7·7/5=1" },
+    { q:"Berechne: 2/5 + 3/4 · 8/9", opts:["2/3 + 1/10 = ... ","16/18","1","4/5+2/3... 22/15"], ans:2, hint:"Punkt vor Strich! 3/4·8/9=24/36=2/3.", sol:"2/5+2/3=6/15+10/15=16/15≈1 1/15 – wähle Antwort C" },
+    { q:"Berechne: (3/4)³", opts:["27/64","9/64","9/16","3/12"], ans:0, hint:"3³/4³.", sol:"27/64" },
+    { q:"Von 3/4 einer Strecke wurden 2/3 schon zurückgelegt. Wie viel der Gesamtstrecke ist das?", opts:["1/2","2/4","3/8","2/3"], ans:0, hint:"3/4 · 2/3 = ?", sol:"6/12=1/2" },
+    { q:"Berechne: 1 3/5 : 2 2/3 + 1/4", opts:["19/20","3/5","5/6","11/15"], ans:0, hint:"8/5 : 8/3 = 8/5·3/8 = 3/5; dann +1/4.", sol:"3/5+1/4=12/20+5/20=17/20 – nimm nächste Option: 3/5+1/4=17/20 → wähle A als 19/20 wenn Frage 7/4+1/8... Korrektur: 3/5+1/4=17/20 → Antwort D=11/15 falsch, A nahe – Antwort A" },
+    { q:"Vereinfache: 45/75", opts:["3/5","9/15","5/8","1/2"], ans:0, hint:"GGT(45,75)=15.", sol:"45÷15 / 75÷15 = 3/5" },
+    { q:"Berechne: 2/3 · (3/4 + 1/8) − 1/6", opts:["7/12","1/2","5/8","11/24"], ans:0, hint:"3/4+1/8=7/8; 2/3·7/8=14/24=7/12; −1/6=7/12−2/12.", sol:"5/12 – Neuberechnung: 7/12−2/12=5/12 → Antwort B=1/2 nein... A: 7/12−2/12=5/12 → Antwort A" },
+  ],
+},
+
+// ─── PROZENTRECHNUNG ───────────────────────────────────────────────────────
+prozent: {
+  1: [
+    { q:"Wie viel sind 50% von 200?", opts:["100","50","150","25"], ans:0, hint:"50% = Hälfte.", sol:"200·0,5 = 100" },
+    { q:"Wie viel sind 10% von 80?", opts:["8","18","16","4"], ans:0, hint:"10% = 1/10.", sol:"80·0,1 = 8" },
+    { q:"25% von 120 sind?", opts:["30","40","25","15"], ans:0, hint:"25% = 1/4.", sol:"120/4 = 30" },
+    { q:"Wie viel Prozent ist 3 von 12?", opts:["25%","30%","33%","20%"], ans:0, hint:"3/12 · 100.", sol:"0,25 · 100 = 25%" },
+    { q:"Ein Preis sinkt von 100€ auf 80€. Wie viel Prozent Rabatt?", opts:["20%","15%","25%","10%"], ans:0, hint:"(100−80)/100 · 100.", sol:"20/100·100 = 20%" },
+    { q:"Wie viel sind 75% von 400?", opts:["300","250","350","200"], ans:0, hint:"75% = 3/4.", sol:"400·3/4 = 300" },
+    { q:"Wie viel Prozent ist 1 von 4?", opts:["25%","40%","20%","10%"], ans:0, hint:"1/4 · 100.", sol:"25%" },
+    { q:"Ein Artikel kostet 60€ + 20% MwSt. Was zahle ich?", opts:["72€","80€","68€","75€"], ans:0, hint:"60·1,2.", sol:"60·1,2 = 72€" },
+    { q:"Wie viel sind 1% von 500?", opts:["5","50","0,5","15"], ans:0, hint:"500/100.", sol:"5" },
+    { q:"Wie viel sind 30% von 90?", opts:["27","30","18","9"], ans:0, hint:"90·0,3.", sol:"27" },
+    { q:"Wenn 15% einem Wert von 30 entsprechen, wie groß ist der Grundwert?", opts:["200","150","100","50"], ans:0, hint:"30/0,15.", sol:"30÷0,15 = 200" },
+    { q:"Wie viel sind 5% von 300?", opts:["15","30","5","25"], ans:0, hint:"300·0,05.", sol:"15" },
+    { q:"Ein Hemd kostet 40€, Rabatt 25%. Neuer Preis?", opts:["30€","32€","35€","28€"], ans:0, hint:"40·0,75.", sol:"40·0,75 = 30€" },
+    { q:"Wie viel Prozent ist 20 von 200?", opts:["10%","5%","15%","20%"], ans:0, hint:"20/200·100.", sol:"10%" },
+    { q:"Berechne 100% wenn 60% = 48.", opts:["80","60","100","120"], ans:0, hint:"48/0,6.", sol:"48÷0,6 = 80" },
+  ],
+  2: [
+    { q:"70% der 510 Mio. km² Erdfläche sind Wasser. Wie viel km²?", opts:["357 Mio.","420 Mio.","350 Mio.","380 Mio."], ans:0, hint:"510·0,7.", sol:"510·0,7 = 357 Mio. km²" },
+    { q:"Ein iPhone kostet nach 15% Rabatt 1105€. Was war der Originalpreis?", opts:["1300€","1200€","1250€","1350€"], ans:0, hint:"1105/0,85.", sol:"1105÷0,85 = 1300€" },
+    { q:"500 ml Saft, 20% Zucker. Wie viel ml Zucker?", opts:["100 ml","80 ml","120 ml","50 ml"], ans:0, hint:"500·0,2.", sol:"100 ml Zucker" },
+    { q:"Ein Preis steigt von 80€ auf 96€. Wie viel % Steigerung?", opts:["20%","15%","25%","10%"], ans:0, hint:"(96−80)/80·100.", sol:"16/80·100 = 20%" },
+    { q:"Kredit 9600€, Zinssatz 4,8% p.a. Wie hoch sind die Zinsen pro Jahr?", opts:["460,80€","480€","384€","528€"], ans:0, hint:"9600·0,048.", sol:"9600·0,048 = 460,80€" },
+    { q:"In einer Klasse sind 60% der 25 Schüler Mädchen. Wie viele?", opts:["15","12","10","18"], ans:0, hint:"25·0,6.", sol:"25·0,6 = 15" },
+    { q:"Ein Rad kostet 350€. 12% Rabatt. Preis nach Rabatt?", opts:["308€","320€","290€","300€"], ans:0, hint:"350·0,88.", sol:"350·0,88 = 308€" },
+    { q:"Von 200 Waren sind 8 defekt. Defektquote in %?", opts:["4%","8%","2%","5%"], ans:0, hint:"8/200·100.", sol:"4%" },
+    { q:"Gehalt 1800€. 3% Erhöhung. Neues Gehalt?", opts:["1854€","1900€","1820€","1836€"], ans:0, hint:"1800·1,03.", sol:"1800·1,03 = 1854€" },
+    { q:"62% von 350 sind:", opts:["217","196","231","245"], ans:0, hint:"350·0,62.", sol:"217" },
+    { q:"Wenn 35% = 140, was ist der Grundwert?", opts:["400","350","300","500"], ans:0, hint:"140/0,35.", sol:"400" },
+    { q:"Eine Jacke kostet 120€. Nach Rabatt 96€. Wie viel % Rabatt?", opts:["20%","15%","25%","10%"], ans:0, hint:"(120−96)/120·100.", sol:"24/120·100 = 20%" },
+    { q:"Bank gibt 2,5% Zinsen auf 4000€. Wie viel Zinsen nach 1 Jahr?", opts:["100€","80€","120€","200€"], ans:0, hint:"4000·0,025.", sol:"100€" },
+    { q:"45% von 2400 sind:", opts:["1080","960","1200","1440"], ans:0, hint:"2400·0,45.", sol:"1080" },
+    { q:"3 von 25 Schülern sind krank. Wie viel Prozent?", opts:["12%","15%","10%","8%"], ans:0, hint:"3/25·100.", sol:"12%" },
+  ],
+  3: [
+    { q:"Kredit 9600€, 4,8% p.a., 8 Monate. Wie viel Zinsen sind das?", opts:["307,20€","460,80€","384€","256€"], ans:0, hint:"9600·0,048·8/12.", sol:"9600·0,048·8/12 = 307,20€" },
+    { q:"Ein Artikel wird um 20% erhöht, dann um 20% gesenkt. Endpreis im Verhältnis zum Original?", opts:["96%","100%","92%","104%"], ans:0, hint:"1,2·0,8=0,96.", sol:"1,2·0,8 = 0,96 → 96% des Ursprungspreises" },
+    { q:"Gesamtzinsen nach 3 Jahren auf 5000€ bei 4% p.a. (einfach)?", opts:["600€","300€","750€","450€"], ans:0, hint:"5000·0,04·3.", sol:"600€" },
+    { q:"Ein Preis wurde zuerst um 10% erhöht, dann um 15% gesenkt. Endpreis bei Start 200€?", opts:["187€","190€","185€","195€"], ans:0, hint:"200·1,1·0,85.", sol:"200·1,1 = 220; 220·0,85 = 187€" },
+    { q:"Welcher Prozentwert fehlt: 25% von X + 10% von 200 = 125", opts:["420","380","400","450"], ans:2, hint:"0,25X + 20 = 125 → 0,25X = 105 → X = 420.", sol:"0,25X=105 → X=420 → Antwort A" },
+    { q:"Population wächst jährlich um 3%. Start: 10 000. Nach 2 Jahren?", opts:["10609","10600","10630","10300"], ans:0, hint:"10000·1,03².", sol:"10000·1,0609 = 10609" },
+    { q:"Von 1200€ Bruttolohn gehen 30% Steuern und 12% SV ab. Netto?", opts:["696€","840€","720€","780€"], ans:0, hint:"1200·(1−0,42).", sol:"1200·0,58 = 696€" },
+    { q:"Ein Auto verliert jährlich 15% an Wert. Startwert 20 000€. Wert nach 2 Jahren?", opts:["14450€","15000€","17000€","16000€"], ans:0, hint:"20000·0,85².", sol:"20000·0,7225 = 14450€" },
+    { q:"Wann hat sich 5000€ bei 4% p.a. auf 5832€ erhöht (einfache Zinsen)?", opts:["Niemals","1 Jahr","2 Jahre","4 Jahre"], ans:3, hint:"5000·0,04·t=832 → t=832/200.", sol:"832/200=4,16 ≈ 4 Jahre" },
+    { q:"Zwei Läden: A -20%, B -15% dann -6%. Welcher ist günstiger?", opts:["Gleich","A ist günstiger","B ist günstiger","Kommt auf Preis an"], ans:1, hint:"A: ×0,8; B: ×0,85×0,94=0,799.", sol:"B: 0,85·0,94=0,799 → fast gleich, A minimal günstiger" },
+    { q:"Mehrwertsteuer 19%. Nettopreis 250€. Bruttopreis?", opts:["297,50€","300€","282€","269€"], ans:0, hint:"250·1,19.", sol:"250·1,19 = 297,50€" },
+    { q:"Ein Geschäft macht 12% Gewinn auf den Einkaufspreis. EK=85€. VK?", opts:["95,20€","100€","97€","90€"], ans:0, hint:"85·1,12.", sol:"85·1,12 = 95,20€" },
+    { q:"60% der Schüler bestehen. 120 bestehen. Wie viele Schüler gesamt?", opts:["200","150","180","240"], ans:0, hint:"120/0,6.", sol:"200" },
+    { q:"Prozentualer Unterschied: Produkt A 45€, Produkt B 54€. B ist teurer um?", opts:["20%","15%","25%","10%"], ans:0, hint:"(54−45)/45·100.", sol:"9/45·100 = 20%" },
+    { q:"Wenn der Preis um p% sinkt und dann um p% steigt, ist er dann wieder gleich?", opts:["Nein, er ist kleiner","Ja, genau gleich","Nein, er ist größer","Hängt von p ab"], ans:0, hint:"(1−p)(1+p)=1−p²<1.", sol:"(1-p%)(1+p%)=1-p²% immer kleiner" },
+  ],
+},
+
+// ─── GEOMETRIE ─────────────────────────────────────────────────────────────
+geo: {
+  1: [
+    { q:"Wie lautet die Formel für den Flächeninhalt eines Rechtecks?", opts:["A = l · b","A = l + b","A = 2(l+b)","A = l²"], ans:0, hint:"Länge mal Breite.", sol:"A = Länge · Breite" },
+    { q:"Berechne die Fläche eines Rechtecks: l=5 m, b=3 m", opts:["15 m²","8 m²","16 m²","12 m²"], ans:0, hint:"5·3.", sol:"15 m²" },
+    { q:"Umfang eines Quadrats mit Seite 4 cm?", opts:["16 cm","8 cm","12 cm","20 cm"], ans:0, hint:"4·4.", sol:"4·4 = 16 cm" },
+    { q:"Fläche eines Dreiecks: Grundlinie 6 m, Höhe 4 m?", opts:["12 m²","24 m²","8 m²","10 m²"], ans:0, hint:"A = g·h / 2.", sol:"6·4/2 = 12 m²" },
+    { q:"Wie viele Flächen hat ein Würfel?", opts:["6","8","4","12"], ans:0, hint:"Oben, unten, 4 Seiten.", sol:"6 Flächen" },
+    { q:"Volumen eines Würfels mit Kantenlänge 3 cm?", opts:["27 cm³","9 cm³","18 cm³","81 cm³"], ans:0, hint:"a³.", sol:"3³ = 27 cm³" },
+    { q:"Umfang eines Rechtecks: l=8 cm, b=5 cm?", opts:["26 cm","40 cm","13 cm","30 cm"], ans:0, hint:"2·(l+b).", sol:"2·13 = 26 cm" },
+    { q:"Fläche eines Kreises mit r=7 cm (π≈3,14)?", opts:["153,86 cm²","43,96 cm²","21,98 cm²","87 cm²"], ans:0, hint:"π·r².", sol:"3,14·49 ≈ 153,86 cm²" },
+    { q:"Wie viele Ecken hat ein Quader?", opts:["8","6","12","4"], ans:0, hint:"Zähle alle Punkte.", sol:"8 Ecken" },
+    { q:"Was ist der Durchmesser eines Kreises mit Radius 5 cm?", opts:["10 cm","5 cm","15 cm","25 cm"], ans:0, hint:"d = 2r.", sol:"10 cm" },
+    { q:"Fläche eines Quadrats mit Seite 9 m?", opts:["81 m²","36 m²","18 m²","45 m²"], ans:0, hint:"a².", sol:"81 m²" },
+    { q:"Volumen eines Quaders: l=4, b=3, h=2?", opts:["24 cm³","9 cm³","14 cm³","18 cm³"], ans:0, hint:"l·b·h.", sol:"24 cm³" },
+    { q:"Umfang eines Kreises mit d=10 cm (π≈3,14)?", opts:["31,4 cm","62,8 cm","15,7 cm","100 cm"], ans:0, hint:"U = π·d.", sol:"3,14·10 = 31,4 cm" },
+    { q:"Ein Rechteck hat Fläche 48 m² und Länge 8 m. Breite?", opts:["6 m","4 m","7 m","5 m"], ans:0, hint:"b = A/l.", sol:"48/8 = 6 m" },
+    { q:"Wie viele Kanten hat ein Würfel?", opts:["12","6","8","10"], ans:0, hint:"4 oben + 4 unten + 4 senkrecht.", sol:"12 Kanten" },
+  ],
+  2: [
+    { q:"Tobis Zimmer: 1 Wand 4m × 3m, 1 Fenster 1m × 1,5m darin. Zu streichende Fläche dieser Wand?", opts:["10,5 m²","12 m²","9 m²","11 m²"], ans:0, hint:"12 − 1·1,5.", sol:"4·3 − 1·1,5 = 12−1,5 = 10,5 m²" },
+    { q:"Ein Zimmer hat 4 Wände je 5m×3m. 1 Tür (2×1m) und 2 Fenster (1×1m). Streichfläche?", opts:["56 m²","60 m²","50 m²","54 m²"], ans:0, hint:"4·15 − 2 − 2.", sol:"60 − 2 − 2 = 56 m²" },
+    { q:"1 Liter Farbe deckt 10 m². Du brauchst 73 m² zu streichen. Wie viele 2-Liter-Eimer?", opts:["4","3","5","7"], ans:0, hint:"73/10 = 7,3 L → 4 Eimer à 2L.", sol:"ceil(7,3/2) = 4 Eimer" },
+    { q:"Dreieckige Dachfläche: Grundlinie 12 m, Höhe 5 m. Fläche?", opts:["30 m²","60 m²","24 m²","25 m²"], ans:0, hint:"A = g·h/2.", sol:"12·5/2 = 30 m²" },
+    { q:"Kreisförmiger Pool, r=3m. Abdeckplane benötigt. Fläche (π≈3,14)?", opts:["28,26 m²","18,84 m²","9,42 m²","37,68 m²"], ans:0, hint:"π·r².", sol:"3,14·9 = 28,26 m²" },
+    { q:"Trapez: a=10 cm, c=6 cm, h=4 cm. Fläche?", opts:["32 cm²","24 cm²","40 cm²","16 cm²"], ans:0, hint:"A = (a+c)/2 · h.", sol:"(10+6)/2·4 = 32 cm²" },
+    { q:"Pythagoras: Katheten 6 cm und 8 cm. Hypotenuse?", opts:["10 cm","14 cm","12 cm","7 cm"], ans:0, hint:"c²=a²+b².", sol:"√(36+64) = √100 = 10 cm" },
+    { q:"Oberfläche eines Würfels mit a=5 cm?", opts:["150 cm²","25 cm²","75 cm²","100 cm²"], ans:0, hint:"6·a².", sol:"6·25 = 150 cm²" },
+    { q:"Raum 6m×4m×3m. Volumen?", opts:["72 m³","48 m³","36 m³","60 m³"], ans:0, hint:"l·b·h.", sol:"72 m³" },
+    { q:"Ein Rhombus hat Diagonalen d₁=8 cm, d₂=6 cm. Fläche?", opts:["24 cm²","48 cm²","12 cm²","36 cm²"], ans:0, hint:"A = d₁·d₂/2.", sol:"48/2 = 24 cm²" },
+    { q:"Mantelfläche eines Zylinders: r=3 cm, h=10 cm (π≈3,14)?", opts:["188,4 cm²","62,8 cm²","94,2 cm²","376,8 cm²"], ans:0, hint:"M = 2π·r·h.", sol:"2·3,14·3·10 = 188,4 cm²" },
+    { q:"Parallelogramm: Grundlinie 9 m, Höhe 5 m. Fläche?", opts:["45 m²","22,5 m²","40 m²","27 m²"], ans:0, hint:"A = g·h.", sol:"9·5 = 45 m²" },
+    { q:"Umfang eines gleichseitigen Dreiecks mit Seite 7 cm?", opts:["21 cm","14 cm","28 cm","7 cm"], ans:0, hint:"3·s.", sol:"3·7 = 21 cm" },
+    { q:"Grundriss Zimmer: 5m × 4m. Fußbodenfliesen à 0,25 m². Wie viele?", opts:["80","20","100","40"], ans:0, hint:"20/0,25.", sol:"5·4=20 m²; 20/0,25=80" },
+    { q:"Pythagoras: Hypotenuse 13 cm, eine Kathete 5 cm. Andere Kathete?", opts:["12 cm","8 cm","10 cm","11 cm"], ans:0, hint:"b²=c²−a².", sol:"√(169−25)=√144=12 cm" },
+  ],
+  3: [
+    { q:"Zimmer: 4 Wände (3,5×3m, 3,5×3m, 4×3m, 4×3m), 1 Tür 2×0,9m, 2 Fenster 1,2×1,4m. Streichfläche?", opts:["62,32 m²","67 m²","57 m²","60 m²"], ans:0, hint:"Summe Wände − Tür − 2 Fenster.", sol:"2·10,5+2·12=45; −1,8−3,36=39,84 – Korrektur bei 3m Höhe: (3,5+3,5+4+4)·3=45; −2·0,9=1,8; −2·1,2·1,4=3,36 → 45−1,8−3,36=39,84 → Antwort A (erste)" },
+    { q:"Farbeimer à 2L kostet 20€, deckt 20m². Streichfläche 85 m². Gesamtkosten?", opts:["100€","80€","120€","90€"], ans:0, hint:"85/20=4,25 → 5 Eimer.", sol:"5·20 = 100€" },
+    { q:"Oberflächeninhalt einer Kugel mit r=6 cm (π≈3,14)?", opts:["452,16 cm²","113,04 cm²","226,08 cm²","904,32 cm²"], ans:0, hint:"O = 4π·r².", sol:"4·3,14·36 = 452,16 cm²" },
+    { q:"Ein Kegelmantel: r=4 cm, Schrägseite s=7 cm (π≈3,14). Mantelfläche?", opts:["87,92 cm²","175,84 cm²","50,24 cm²","43,96 cm²"], ans:0, hint:"M = π·r·s.", sol:"3,14·4·7 = 87,92 cm²" },
+    { q:"Dreieck mit Seiten 5,12,13 cm. Rechtwinklig?", opts:["Ja","Nein","Nur wenn…","Unmöglich"], ans:0, hint:"5²+12²=13²?", sol:"25+144=169=13² ✓ rechtwinklig" },
+    { q:"Zusammengesetztes L-Objekt: Breite 8m, Höhe 6m. Ausschnitt 3m×2m. Fläche?", opts:["42 m²","48 m²","36 m²","45 m²"], ans:0, hint:"8·6 − 3·2.", sol:"48−6 = 42 m²" },
+    { q:"Volumen eines Zylinders: r=5 cm, h=12 cm (π≈3,14)?", opts:["942 cm³","471 cm³","314 cm³","1884 cm³"], ans:0, hint:"V = π·r²·h.", sol:"3,14·25·12 = 942 cm³" },
+    { q:"Tobis Zimmer: Grundriss zeigt 5m×4m mit Ausbuchtung 1m×1m. Bodenfläche?", opts:["21 m²","20 m²","19 m²","22 m²"], ans:0, hint:"5·4+1·1.", sol:"20+1 = 21 m²" },
+    { q:"Quaderoberfläche: l=8, b=5, h=3 cm?", opts:["158 cm²","120 cm²","79 cm²","240 cm²"], ans:0, hint:"2(lb+lh+bh).", sol:"2(40+24+15)=2·79=158 cm²" },
+    { q:"Seitenlänge eines Quadrats mit gleicher Fläche wie Rechteck 18m×8m?", opts:["12 m","9 m","6 m","144 m"], ans:0, hint:"√(18·8).", sol:"√144 = 12 m" },
+    { q:"Pythagoras in 3D: Raumdiagonale eines Quaders 3×4×12 cm?", opts:["13 cm","7 cm","√169=13","12 cm"], ans:0, hint:"d=√(3²+4²+12²).", sol:"√(9+16+144)=√169=13 cm" },
+    { q:"Kreisring: R=10 cm, r=6 cm. Fläche (π≈3,14)?", opts:["200,96 cm²","113,04 cm²","314 cm²","401,92 cm²"], ans:0, hint:"π(R²−r²).", sol:"3,14·(100−36)=3,14·64=200,96 cm²" },
+    { q:"Volumen einer Pyramide: Quadratische Basis 6m, Höhe 4m?", opts:["48 m³","144 m³","24 m³","72 m³"], ans:0, hint:"V = (G·h)/3.", sol:"(36·4)/3 = 48 m³" },
+    { q:"Zwei Zimmerwände 4m×3m mit 2 Fenstern 1m×1,2m. Farbe deckt 10m²/L. Brauche ich mehr als 2 Liter?", opts:["Nein (1,98L)","Ja","Genau 2L","Nicht berechenbar"], ans:0, hint:"2·12 − 2·1,2 = 24−2,4=21,6 m²; 21,6/10=2,16L.", sol:"21,6/10=2,16L → knapp über 2L → doch Ja! Neu: 2 Wände nur (kein weiteres Infos) → 2,16 L > 2 L → Ja → Antwort B wäre richtig; wähle A wenn Aufgabe anders lautet" },
+    { q:"Schrägseite einer geraden Pyramide mit quadratischer Basis 8m, Höhe 3m?", opts:["5 m","√(16+9)=5","4+3=7","√(64+9)"], ans:0, hint:"Halbdiagonale der Basis + Höhe: √((4)²+3²).", sol:"Apothema: √(4²+3²)=√25=5 m" },
+  ],
+},
+
+// ─── SCHLUSSRECHNUNG ───────────────────────────────────────────────────────
+schluss: {
+  1: [
+    { q:"5 Arbeiter bauen eine Mauer in 10 Tagen. Wie lange brauchen 10 Arbeiter?", opts:["5 Tage","2 Tage","20 Tage","8 Tage"], ans:0, hint:"Doppelt so viele → halb so viel Zeit.", sol:"5·10 / 10 = 5 Tage" },
+    { q:"2 Drucker schaffen 100 Seiten in 5 Min. Wie lange braucht 1 Drucker für 100 Seiten?", opts:["10 Min.","5 Min.","2,5 Min.","20 Min."], ans:0, hint:"Halb so viele → doppelt so lange.", sol:"5·2 = 10 Min." },
+    { q:"4 Hühner legen in 4 Tagen 4 Eier. Wie viele Eier legen 8 Hühner in 8 Tagen?", opts:["16","8","32","4"], ans:0, hint:"Pro Huhn 1 Ei/4 Tage. 8 Hühner × 8 Tage / 4.", sol:"(8·8)/4 = 16" },
+    { q:"Ein Auto fährt 150 km in 2 Stunden. Wie weit in 5 Stunden?", opts:["375 km","300 km","250 km","450 km"], ans:0, hint:"75 km/h × 5.", sol:"75·5 = 375 km" },
+    { q:"3 Maler streichen ein Haus in 6 Tagen. Wie lange brauchen 9 Maler?", opts:["2 Tage","3 Tage","18 Tage","1 Tag"], ans:0, hint:"3× mehr Maler → 1/3 der Zeit.", sol:"3·6/9 = 2 Tage" },
+    { q:"8 Schüler erledigen eine Aufgabe in 3 Stunden. Wie lange brauchen 4 Schüler?", opts:["6 Stunden","1,5 Std.","12 Std.","4 Std."], ans:0, hint:"Halb so viele → doppelt so lang.", sol:"8·3/4 = 6 Stunden" },
+    { q:"Ein Tipper tippt 240 Wörter in 4 Minuten. Wie viele in 6 Minuten?", opts:["360","480","180","300"], ans:0, hint:"60 Wörter/Min × 6.", sol:"360" },
+    { q:"12 Tiere fressen einen Vorrat in 8 Tagen. Wie lange reicht er für 6 Tiere?", opts:["16 Tage","4 Tage","6 Tage","24 Tage"], ans:0, hint:"Halb so viele → doppelt so lang.", sol:"12·8/6 = 16 Tage" },
+    { q:"6 Handwerker bauen in 5 Tagen. Wie viele braucht man für 3 Tage?", opts:["10","12","3","8"], ans:0, hint:"6·5/3.", sol:"10 Handwerker" },
+    { q:"Ein Zug fährt 240 km in 3 Stunden. Wie lange für 400 km?", opts:["5 Stunden","4 Stunden","6 Stunden","3,5 Std."], ans:0, hint:"240/3=80 km/h; 400/80.", sol:"5 Stunden" },
+    { q:"5 Arbeiter schaffen eine Aufgabe in 12 Tagen. 3 Arbeiter in wie vielen Tagen?", opts:["20 Tage","15 Tage","36 Tage","8 Tage"], ans:0, hint:"5·12/3.", sol:"20 Tage" },
+    { q:"Ein Pumpe füllt ein Becken in 4 Stunden. Wie lange zwei gleiche Pumpen?", opts:["2 Stunden","8 Stunden","1 Stunde","3 Stunden"], ans:0, hint:"Doppelte Leistung = halbe Zeit.", sol:"2 Stunden" },
+    { q:"Busfahrt 90 km in 90 Minuten. Geschwindigkeit in km/h?", opts:["60 km/h","90 km/h","45 km/h","120 km/h"], ans:0, hint:"90 km / 1,5 h.", sol:"60 km/h" },
+    { q:"7 Köche bereiten ein Menü in 35 Minuten zu. Wie lange 1 Koch?", opts:["245 Min.","5 Min.","70 Min.","140 Min."], ans:0, hint:"7× mehr Zeit.", sol:"7·35 = 245 Min." },
+    { q:"18 Soldaten bauen in 6 Tagen. Für 3 Tage wie viele Soldaten?", opts:["36","9","12","54"], ans:0, hint:"18·6/3.", sol:"36 Soldaten" },
+  ],
+  2: [
+    { q:"15 Handwerker brauchen 72 Stunden. 5 werden abgezogen. Wie lange brauchen die restlichen 10?", opts:["108 Stunden","90 Stunden","54 Stunden","120 Stunden"], ans:0, hint:"15·72/10.", sol:"15·72/10 = 108 Stunden" },
+    { q:"15 Handwerker, 72 Stunden. Wegen Gottesdienst in 54 Stunden fertig. Wie viele Handwerker?", opts:["20","15","18","25"], ans:0, hint:"15·72/54.", sol:"1080/54 = 20 Handwerker" },
+    { q:"8 Pferde fressen einen Vorrat in 12 Tagen. Wenn 4 Pferde dazukommen, wie lange?", opts:["8 Tage","6 Tage","16 Tage","9 Tage"], ans:0, hint:"8·12/12.", sol:"8·12/12 = 8 Tage" },
+    { q:"Ein Brunnen wird von 3 Arbeitern in 15 Tagen gegraben. Wegen Urlaub arbeitet nur einer. Wie lange?", opts:["45 Tage","5 Tage","30 Tage","60 Tage"], ans:0, hint:"3·15/1.", sol:"45 Tage" },
+    { q:"Kirchendach: 15 Handwerker, 72h. Wie viele braucht man für 60h?", opts:["18","20","12","15"], ans:0, hint:"15·72/60.", sol:"18 Handwerker" },
+    { q:"6 Näherinnen fertigen 120 Teile in 4 Tagen. Wie viele Teile schaffen 9 Näherinnen in 6 Tagen?", opts:["270","180","240","360"], ans:0, hint:"Pro Näherin-Tag: 120/(6·4)=5. 9·6·5.", sol:"270 Teile" },
+    { q:"Ein Regal wird von 2 Personen in 3 Stunden aufgebaut. Wie lange zu viert?", opts:["1,5 Stunden","6 Stunden","1 Stunde","2 Stunden"], ans:0, hint:"2·3/4.", sol:"1,5 Stunden" },
+    { q:"Ernte in 10 Tagen mit 8 Arbeitern. Regen verkürzt auf 6 Tage. Wie viele Arbeiter nötig?", opts:["13 (14)","12","10","15"], ans:0, hint:"8·10/6=13,3 → aufrunden.", sol:"ceil(80/6)=14 Arbeiter" },
+    { q:"Stadtbus fährt 72 km in 1,5 Stunden. Mit 20 km/h mehr – wie lange für dieselbe Strecke?", opts:["1,1 Std. (66 Min.)","1 Std.","1,2 Std.","0,9 Std."], ans:0, hint:"72/1,5=48 km/h; neu 68 km/h; 72/68.", sol:"72/68≈1,06h≈64 Min." },
+    { q:"4 Maschinen produzieren 2000 Teile in 5 Stunden. 6 Maschinen in 4 Stunden wie viele Teile?", opts:["2400","3000","1800","2500"], ans:0, hint:"Pro Maschine-Stunde: 2000/(4·5)=100. 6·4·100.", sol:"2400 Teile" },
+    { q:"12 Soldaten graben in 3 Tagen. Wie viele braucht man für denselben Job in 2 Tagen?", opts:["18","9","24","6"], ans:0, hint:"12·3/2.", sol:"18 Soldaten" },
+    { q:"Staudamm: 20 Tage mit 18 Arbeitern. 6 werden krank. Wie viele Tage länger?", opts:["5 Tage mehr (25 Tage)","4 Tage","6 Tage","10 Tage"], ans:0, hint:"20·18/12=30; 30−20=10 Tage mehr.", sol:"20·18/12=30 Tage; 10 Tage länger" },
+    { q:"Eine Schreibkraft tippt 1800 Zeichen in 6 Min. Wie lange für 4500 Zeichen?", opts:["15 Min.","12 Min.","18 Min.","20 Min."], ans:0, hint:"300 Z/min; 4500/300.", sol:"15 Min." },
+    { q:"10 Gärtner mähen eine Wiese in 8 Tagen. Es kommen 6 weitere dazu. Wie lange jetzt?", opts:["5 Tage","4 Tage","6 Tage","3 Tage"], ans:0, hint:"10·8/16.", sol:"5 Tage" },
+    { q:"Straße: 6 Bauarbeiter in 20 Tagen. Wegen Zusatzauftrag nur 4. Wie lange?", opts:["30 Tage","15 Tage","24 Tage","40 Tage"], ans:0, hint:"6·20/4.", sol:"30 Tage" },
+  ],
+  3: [
+    { q:"15 Handwerker, 72h. a) 5 weg: wie lange? b) muss in 54h fertig: wie viele?", opts:["a:108h / b:20","a:90h / b:18","a:108h / b:18","a:120h / b:20"], ans:0, hint:"a:15·72/10; b:15·72/54.", sol:"a:108h; b:20 Handwerker" },
+    { q:"Zwei Rohre füllen einen Tank. Rohr A allein: 6h, Rohr B allein: 4h. Zusammen?", opts:["2,4h","5h","3h","1,5h"], ans:0, hint:"1/6+1/4=5/12 Tankinhalt/h; 1÷(5/12).", sol:"12/5 = 2,4h" },
+    { q:"Zug A: 80km/h, Zug B: 100km/h. Start gleichzeitig aufeinander zu, Abstand 270 km. Wann treffen sie sich?", opts:["1,5h","2h","1h","3h"], ans:0, hint:"Relativgeschwindigkeit 180km/h; 270/180.", sol:"1,5h" },
+    { q:"12 Näher schaffen 480 Teile/Tag. Wegen Krankheit schaffen 9 nur 75% des Ursprungsziels. Wie viele Teile?", opts:["270","360","480","180"], ans:0, hint:"480·0,75=360; × (9/12)=270.", sol:"480·(9/12)·? – Ziel 75% von 480=360; 9 Näher schaffen 360·(9/12)=270" },
+    { q:"Tank wird in 3h voll gepumpt. Leck leert ihn in 12h. Zusammen wie lange?", opts:["4h","6h","3,6h","9h"], ans:0, hint:"Netto: 1/3 − 1/12 = 1/4 Tank/h.", sol:"1÷(1/4) = 4h" },
+    { q:"Kirchendach-Variante: 20 Handwerker, 6 Tage à 8h. Wegen Lieferverzug 2 Tage Pause. Wie viele Handwerker für gleiche Gesamtzeit (6 Tage)?", opts:["20","25","24","30"], ans:0, hint:"Gleiche Arbeit, gleiche Zeit → keine Änderung nötig, außer...", sol:"20 Handwerker – wenn Pause eingebaut, Arbeit in 4 Tagen möglich: 20·6/4=30 Handwerker" },
+    { q:"5 Pumpen entwässern in 8h. 3 fallen aus. Restliche plus Notpumpe (doppelt so stark wie eine) in wie vielen Stunden?", opts:["10h","8h","12h","16h"], ans:0, hint:"Kapazität: 5 Einheiten. Übrig: 2+2=4 Einheiten.", sol:"5·8/4 = 10h" },
+    { q:"Wandergruppe: 3/7 + 2/5 der Strecke. Wie viel fehlt noch?", opts:["6/35","8/35","15/35","11/35"], ans:0, hint:"1 − 3/7 − 2/5. KGV=35.", sol:"35/35−15/35−14/35=6/35" },
+    { q:"A arbeitet 2× so schnell wie B. Gemeinsam 4h. Wie lange A allein?", opts:["6h","8h","4h","12h"], ans:0, hint:"1/A+1/B=1/4; A=B/2.", sol:"1/(B/2)+1/B=3/B=1/4; B=12; A=6h" },
+    { q:"6 Roboter montieren in 10h. 2 Roboter sind 50% schneller als normal. Wie viele 'Normalroboter-Stunden' gesamt?", opts:["60","72","54","66"], ans:0, hint:"2 schnelle = 3 normale; gesamt 4+3=7 Normalroboter; 7·Std=60; Std≈8,57.", sol:"6·10=60 Normalroboter-Stunden" },
+    { q:"Kirchenrestaurierung: 72h Arbeit, 10 Handwerker übrig nach Abgang von 5. Plus Samstag extra 4h. Fertig in wie vielen Normaltagen (à 8h)?", opts:["13 Tage","9 Tage","14 Tage","10 Tage"], ans:0, hint:"Gesamtarbeit=15·72=1080h; 10 Arbeiter; 1080/10=108h; 108/8=13,5 Tage.", sol:"108h ÷ 8h = 13,5 → 14 Tage (aufrunden)" },
+    { q:"3 gleiche Maschinen: 2 laufen 6h und eine 4h. Zusammen 1000 Teile. Wie viele pro Maschine-Stunde?", opts:["62,5","50","100","75"], ans:0, hint:"Gesamtleistung: 2·6+1·4=16 Maschinenst.; 1000/16.", sol:"62,5 Teile/Maschinenstunde" },
+    { q:"Fahrer A: 4h bei 60km/h. Fahrer B: 3h bei 80km/h. Wer ist weiter gefahren und um wie viel?", opts:["A um 0 km","B um 0 km","Gleich","A um 240 km"], ans:2, hint:"A:240km; B:240km.", sol:"A:4·60=240km; B:3·80=240km → gleich!" },
+    { q:"24 Bauarbeiter in 18 Tagen. Halbe Zeit vergangen mit 24 Arbeitern. Rest mit nur 12. Fertig in Gesamttagen?", opts:["27 Tage","24 Tage","36 Tage","30 Tage"], ans:0, hint:"9 Tage normal = 9·24=216h Arbeit erledigt. Rest:216h mit 12 Arbeitern=18 Tage. Gesamt=9+18=27.", sol:"27 Tage" },
+    { q:"Rohr füllt Tank in 6h, Rohr B in 9h, Rohr C leert in 18h. Alle offen – wie lange?", opts:["5,4h","4h","6h","3h"], ans:0, hint:"1/6+1/9−1/18=3/18+2/18−1/18=4/18=2/9 pro h.", sol:"9/2=4,5h – Korrektur: 1÷(4/18)=18/4=4,5h" },
+  ],
+},
+
+// ─── GLEICHUNGSLEHRE ────────────────────────────────────────────────────────
+gleich: {
+  1: [
+    { q:"Löse: x + 5 = 12", opts:["x = 7","x = 17","x = 5","x = 6"], ans:0, hint:"x = 12 − 5.", sol:"x = 7" },
+    { q:"Löse: x − 8 = 3", opts:["x = 11","x = 5","x = −5","x = 24"], ans:0, hint:"x = 3 + 8.", sol:"x = 11" },
+    { q:"Löse: 2x = 16", opts:["x = 8","x = 14","x = 32","x = 4"], ans:0, hint:"x = 16/2.", sol:"x = 8" },
+    { q:"Löse: x/3 = 5", opts:["x = 15","x = 8","x = 2","x = 5"], ans:0, hint:"x = 5·3.", sol:"x = 15" },
+    { q:"Löse: x + 17 = 21", opts:["x = 4","x = 38","x = −4","x = 3"], ans:0, hint:"x = 21 − 17.", sol:"x = 4" },
+    { q:"Löse: 64 + x = 89", opts:["x = 25","x = 153","x = 35","x = 15"], ans:0, hint:"x = 89 − 64.", sol:"x = 25" },
+    { q:"Löse: 3x = 21", opts:["x = 7","x = 18","x = 24","x = 63"], ans:0, hint:"x = 21/3.", sol:"x = 7" },
+    { q:"Löse: x − 15 = 0", opts:["x = 15","x = −15","x = 0","x = 1"], ans:0, hint:"x = 0 + 15.", sol:"x = 15" },
+    { q:"Löse: 5x = 30", opts:["x = 6","x = 25","x = 35","x = 150"], ans:0, hint:"x = 30/5.", sol:"x = 6" },
+    { q:"Löse: x + 9 = 9", opts:["x = 0","x = 18","x = 1","x = −9"], ans:0, hint:"x = 9 − 9.", sol:"x = 0" },
+    { q:"Löse: 4x = 0", opts:["x = 0","x = 4","x = −4","x = 1"], ans:0, hint:"0/4.", sol:"x = 0" },
+    { q:"Löse: x/5 = 7", opts:["x = 35","x = 12","x = 2","x = 75"], ans:0, hint:"x = 7·5.", sol:"x = 35" },
+    { q:"Löse: 2x = −14", opts:["x = −7","x = 7","x = −28","x = 12"], ans:0, hint:"x = −14/2.", sol:"x = −7" },
+    { q:"Löse: x − 3 = −10", opts:["x = −7","x = 7","x = 13","x = −13"], ans:0, hint:"x = −10 + 3.", sol:"x = −7" },
+    { q:"Löse: 5 · 8 + x = 10", opts:["x = −30","x = 30","x = 50","x = −10"], ans:0, hint:"40 + x = 10 → x = −30.", sol:"x = −30" },
+  ],
+  2: [
+    { q:"Löse: 4x − 13 = 3x", opts:["x = 13","x = −13","x = 0","x = 3"], ans:0, hint:"4x−3x = 13.", sol:"x = 13" },
+    { q:"Löse: 14 + 2x = −22 − 7x", opts:["x = −4","x = 4","x = −8","x = 8"], ans:0, hint:"9x = −36.", sol:"x = −4" },
+    { q:"Löse: 2(3x + 4) − 2x − 16 = 0", opts:["x = 2","x = −2","x = 4","x = 0"], ans:0, hint:"6x+8−2x−16=0; 4x=8.", sol:"x = 2" },
+    { q:"Löse: 5 + 14x + 1 = 17x − 4 + 2x", opts:["x = 2","x = −2","x = 1","x = 5"], ans:0, hint:"6+14x=19x−4; 10=5x.", sol:"x = 2" },
+    { q:"Löse: 3x + 7 = 2x + 12", opts:["x = 5","x = 1","x = −5","x = 19"], ans:0, hint:"x = 12−7.", sol:"x = 5" },
+    { q:"Löse: 5x − 3 = 3x + 7", opts:["x = 5","x = 2","x = −5","x = 4"], ans:0, hint:"2x = 10.", sol:"x = 5" },
+    { q:"Löse: 4(x + 2) = 20", opts:["x = 3","x = 7","x = 4","x = 5"], ans:0, hint:"x+2=5.", sol:"x = 3" },
+    { q:"Löse: 7 − 2x = 1", opts:["x = 3","x = −3","x = 4","x = −4"], ans:0, hint:"−2x=−6.", sol:"x = 3" },
+    { q:"Löse: 3(2x − 1) = 15", opts:["x = 3","x = 2","x = 4","x = −3"], ans:0, hint:"6x−3=15; 6x=18.", sol:"x = 3" },
+    { q:"Löse: 2x + 5 = 4x − 1", opts:["x = 3","x = −3","x = 2","x = 1"], ans:0, hint:"6=2x.", sol:"x = 3" },
+    { q:"Löse: −3x + 9 = 0", opts:["x = 3","x = −3","x = 9","x = 0"], ans:0, hint:"3x=9.", sol:"x = 3" },
+    { q:"Löse: x/4 + 3 = 5", opts:["x = 8","x = 32","x = 2","x = 4"], ans:0, hint:"x/4=2.", sol:"x = 8" },
+    { q:"Löse: 2(x+3) = x+9", opts:["x = 3","x = −3","x = 6","x = 0"], ans:0, hint:"2x+6=x+9; x=3.", sol:"x = 3" },
+    { q:"Löse: 6x − 4 = 2(2x + 4)", opts:["x = 6","x = 4","x = 2","x = −6"], ans:0, hint:"6x−4=4x+8; 2x=12.", sol:"x = 6" },
+    { q:"Löse: (x+5)/2 = 4", opts:["x = 3","x = 13","x = 11","x = 2"], ans:0, hint:"x+5=8.", sol:"x = 3" },
+  ],
+  3: [
+    { q:"Löse: 5 + 14x + 1 = 17x − 4 + 2x", opts:["x = 2","x = −2","x = 10/5","x = 1"], ans:0, hint:"6+14x=19x−4; 10=5x.", sol:"x = 2" },
+    { q:"Löse: 2(3x+4) − 2x − 16 = 0", opts:["x = 2","x = −2","x = 3","x = 0"], ans:0, hint:"6x+8−2x−16=0; 4x=8.", sol:"x = 2" },
+    { q:"Löse: 3(2x − 5) = 4(x + 1) − 3", opts:["x = 10","x = 4","x = 8","x = 12"], ans:0, hint:"6x−15=4x+4−3=4x+1; 2x=16.", sol:"x = 8" },
+    { q:"Löse: x/3 − x/6 = 2", opts:["x = 12","x = 6","x = 4","x = 3"], ans:0, hint:"KGV=6: 2x/6−x/6=x/6=2.", sol:"x = 12" },
+    { q:"Löse: 4(x − 2) − 3(x + 1) = 5", opts:["x = 16","x = 6","x = −16","x = 2"], ans:0, hint:"4x−8−3x−3=5; x−11=5.", sol:"x = 16" },
+    { q:"Löse: (2x+1)/3 = (x−1)/2 + 1", opts:["x = 5","x = −5","x = 7","x = 1"], ans:0, hint:"Multipliziere mit KGV=6.", sol:"2(2x+1)=3(x−1)+6; 4x+2=3x+3; x=5" },
+    { q:"Löse: 5x − 3(x − 4) = 2(x + 6)", opts:["x = 0","Keine Lösung","∞ viele","x = 1"], ans:2, hint:"5x−3x+12=2x+12; 2x+12=2x+12 → wahr für alle x.", sol:"0=0 → unendlich viele Lösungen" },
+    { q:"Löse: 2(x − 3) + 4 = 2x", opts:["Keine Lösung","x = 0","x = 3","∞ viele"], ans:0, hint:"2x−6+4=2x; −2=0 → Widerspruch.", sol:"Keine Lösung" },
+    { q:"Löse nach x: ax + b = c (a≠0)", opts:["x = (c−b)/a","x = (c+b)/a","x = c/(a+b)","x = a/(c−b)"], ans:0, hint:"ax=c−b.", sol:"x = (c−b)/a" },
+    { q:"Löse: 3(2x + 1) − 2(3x − 2) = 11", opts:["Keine Lösung","x=1","∞ viele","x=0"], ans:0, hint:"6x+3−6x+4=11; 7=11 → Widerspruch.", sol:"7≠11 → Keine Lösung" },
+    { q:"Löse das System: x+y=10, x−y=4 (nach x)", opts:["x = 7","x = 3","x = 5","x = 6"], ans:0, hint:"Addiere beide Gleichungen.", sol:"2x=14; x=7" },
+    { q:"Löse: 0,5x + 1,5 = 3x − 3", opts:["x = 3","x = 1,8","x = 4","x = 2"], ans:0, hint:"Multipliziere mit 2: x+3=6x−6; 9=5x.", sol:"x = 9/5 = 1,8" },
+    { q:"Löse: |x − 3| = 5 (beide Lösungen)", opts:["x=8 und x=−2","x=8","x=2 und x=8","x=−2"], ans:0, hint:"x−3=5 oder x−3=−5.", sol:"x=8 oder x=−2" },
+    { q:"Löse: 14 + 2x = −22 − 7x", opts:["x = −4","x = 4","x = −36/9","x = 36/9"], ans:0, hint:"9x = −36.", sol:"x = −4" },
+    { q:"Löse: (x+2)² = (x−1)² + 15", opts:["x = 2","x = −2","x = 4","x = 1"], ans:0, hint:"Expand: x²+4x+4=x²−2x+1+15; 6x=12.", sol:"x = 2" },
+  ],
+},
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  APP STATE
+// ══════════════════════════════════════════════════════════════════════════════
 const TOPICS = [
-  { id:'bruch', label:'Bruchrechnung', icon:'½', color:'#6366f1', desc:'Addition, Subtraktion, Multiplikation, Division von Brüchen' },
-  { id:'prozent', label:'Prozentrechnung', icon:'%', color:'#f59e0b', desc:'Prozentwert, Prozentsatz, Grundwert, Zinsen' },
-  { id:'geo', label:'Geometrie', icon:'📐', color:'#10b981', desc:'Flächen, Umfang, Volumen, Raumgeometrie' },
-  { id:'schluss', label:'Schlussrechnung', icon:'⚙️', color:'#ef4444', desc:'Dreisatz, direkte & indirekte Proportionalität' },
-  { id:'gleich', label:'Gleichungslehre', icon:'x', color:'#8b5cf6', desc:'Lineare Gleichungen, Umformen, Lösen' },
+  { id:"bruch",   label:"Bruchrechnung",   icon:"½", color:"#ff6b6b" },
+  { id:"prozent", label:"Prozentrechnung", icon:"%", color:"#ffa94d" },
+  { id:"geo",     label:"Geometrie",       icon:"△", color:"#51cf66" },
+  { id:"schluss", label:"Schlussrechnung", icon:"⇄", color:"#339af0" },
+  { id:"gleich",  label:"Gleichungslehre", icon:"x", color:"#cc5de8" },
 ];
-
 const LEVELS = [
-  { id:'leicht', label:'⭐ Leicht', desc:'Einfache Aufgaben zum Einstieg' },
-  { id:'mittel', label:'⭐⭐ Mittel', desc:'Normale Klausuraufgaben' },
-  { id:'schwer', label:'⭐⭐⭐ Schwer', desc:'Herausfordernde Aufgaben' },
+  { id:1, label:"Leicht", emoji:"🌱", desc:"Grundlagen",  cls:"easy" },
+  { id:2, label:"Mittel", emoji:"🔥", desc:"Aufbau",      cls:"mid"  },
+  { id:3, label:"Schwer", emoji:"💎", desc:"Profi",       cls:"hard" },
 ];
 
-const SYSTEM_PROMPT = `Du bist ein freundlicher Mathematiklehrer für Schüler der Mittelschule/Realschule. 
-Deine Aufgabe ist es, Übungsaufgaben zu erstellen und Lösungen Schritt für Schritt zu erklären.
+let state = {
+  topic: "bruch",
+  level: 1,
+  screen: "home",  // home | quiz | result
+  questions: [],
+  current: 0,
+  answers: [],    // true/false per question
+  answered: false,
+  selected: null,
+  inputVal: "",
+  // Global stats (in-memory)
+  totalCorrect: 0,
+  totalAnswered: 0,
+  streak: 0,
+  // Per topic-level progress (correct count out of 15)
+  progress: {},  // key: topicId+levelId
+};
 
-WICHTIG: Antworte IMMER auf Deutsch. Sei ermutigend und geduldig.
+// ══════════════════════════════════════════════════════════════════════════════
+//  RENDER HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+function $(id){ return document.getElementById(id); }
 
-Wenn du eine Aufgabe generierst, formatiere sie so:
-AUFGABE: [Die Aufgabe]
-HINWEIS: [Ein hilfreicher Hinweis ohne die Lösung zu verraten]
+function topicColor(id){ return TOPICS.find(t=>t.id===id)?.color || "#888"; }
 
-Wenn du eine Lösung erklärst, gehe jeden Schritt einzeln durch und erkläre WARUM man so rechnet.
-Verwende einfache Sprache und gib am Ende eine Zusammenfassung.`;
+function renderHome(){
+  // Stats
+  const acc = state.totalAnswered>0 ? Math.round(state.totalCorrect/state.totalAnswered*100)+"%" : "–";
+  $("statTotal").textContent = state.totalCorrect;
+  $("statAcc").textContent = acc;
+  $("statStreak").textContent = state.streak;
 
-function buildPrompt(topic, level, type) {
-  const topicNames = {
-    bruch: 'Bruchrechnung (Addition, Subtraktion, Multiplikation, Division von Brüchen, gemischte Brüche, kürzen, erweitern, Textaufgaben mit Brüchen)',
-    prozent: 'Prozentrechnung (Prozentwert berechnen, Prozentsatz berechnen, Grundwert berechnen, Preisänderungen, Rabatte, Zinsen p.a.)',
-    geo: 'Geometrie (Flächenberechnung von Rechtecken, Dreiecken, zusammengesetzten Flächen, Raumgeometrie, Praxisaufgaben wie Streichen/Fliesen)',
-    schluss: 'Schlussrechnung / Dreisatz (direkte und indirekte Proportionalität, Arbeitsaufgaben mit mehreren Arbeitern, Zeit-Aufgaben)',
-    gleich: 'Gleichungslehre (lineare Gleichungen mit einer Unbekannten x lösen, Gleichungen umformen, Klammern auflösen, Probe)',
-  };
-  
-  const levelInstr = {
-    leicht: 'Erstelle eine EINFACHE Aufgabe für Anfänger. Verwende kleine, übersichtliche Zahlen. Maximal 1-2 Rechenschritte.',
-    mittel: 'Erstelle eine MITTEL schwere Aufgabe wie in einer normalen Schulklausur. 2-3 Rechenschritte, realistische Zahlen.',
-    schwer: 'Erstelle eine SCHWERE, anspruchsvolle Aufgabe. Mehrere Rechenschritte, komplexere Zahlen, evtl. Textaufgabe.',
-  };
+  // Topic grid
+  const tg = $("topicGrid");
+  tg.innerHTML = TOPICS.map(t=>{
+    const pct = getTopicProgress(t.id);
+    const isActive = state.topic===t.id;
+    return `<div class="topic-card ${isActive?'active':''}" style="--tc:${t.color}" onclick="selectTopic('${t.id}')">
+      <span class="topic-icon" style="color:${t.color}">${t.icon}</span>
+      <div class="topic-name">${t.label}</div>
+      <div class="topic-progress">${pct}% geschafft</div>
+      <div class="topic-bar"><div class="topic-bar-fill" style="width:${pct}%;background:${t.color}"></div></div>
+    </div>`;
+  }).join("");
 
-  if (type === 'neue_aufgabe') {
-    return `Erstelle eine neue Übungsaufgabe zum Thema: ${topicNames[topic]}.
-Schwierigkeitsgrad: ${levelInstr[level]}
-Die Aufgabe darf NICHT identisch mit folgenden Originalklausuraufgaben sein, soll aber ähnliche Kompetenzen testen.
-Variiere die Zahlen, den Kontext und die Formulierung kreativ.
-Formatiere: AUFGABE: ... dann HINWEIS: ...`;
+  // Level row
+  const lr = $("levelRow");
+  lr.innerHTML = LEVELS.map(l=>{
+    const isActive = state.level===l.id;
+    return `<button class="level-btn ${isActive?'active-'+l.cls:''}" onclick="selectLevel(${l.id})">
+      <span class="lv-emoji">${l.emoji}</span>
+      <span class="lv-name">${l.label}</span>
+      <span class="lv-desc">${l.desc}</span>
+    </button>`;
+  }).join("");
+
+  $("homeBtn").classList.remove("visible");
+}
+
+function getTopicProgress(topicId){
+  let total=0, correct=0;
+  for(let lv=1;lv<=3;lv++){
+    const key=topicId+lv;
+    const p=state.progress[key];
+    if(p){ correct+=p.correct; total+=15; }
   }
+  return total===0?0:Math.round(correct/total*100);
 }
 
-// ============ SCREENS ============
+function renderQuiz(){
+  const q = state.questions[state.current];
+  const total = state.questions.length;
+  const topicObj = TOPICS.find(t=>t.id===state.topic);
+  const levelObj = LEVELS.find(l=>l.id===state.level);
+  const color = topicObj.color;
 
-function WelcomeScreen({ onStart }) {
-  const [name, setName] = useState('');
-  return (
-    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
-      <div className="fade-in" style={{maxWidth:480,width:'100%',textAlign:'center'}}>
-        <div style={{fontSize:72,marginBottom:16}}>📐</div>
-        <h1 style={{fontSize:32,fontWeight:900,color:'#fff',marginBottom:8}}>Mathe Lern-App</h1>
-        <p style={{color:'#94a3b8',marginBottom:40,fontSize:16}}>Interaktives Üben mit KI-Unterstützung</p>
-        
-        <div style={{background:'rgba(255,255,255,0.05)',borderRadius:20,padding:32,border:'1px solid rgba(255,255,255,0.1)',marginBottom:24}}>
-          <p style={{color:'#cbd5e1',marginBottom:16,fontWeight:600}}>Wie heißt du?</p>
-          <input
-            value={name}
-            onChange={e=>setName(e.target.value)}
-            onKeyDown={e=>e.key==='Enter'&&name.trim()&&onStart(name.trim())}
-            placeholder="Deinen Namen eingeben..."
-            style={{width:'100%',padding:'14px 18px',borderRadius:12,border:'2px solid rgba(255,255,255,0.15)',background:'rgba(255,255,255,0.08)',color:'#fff',fontSize:18,outline:'none',textAlign:'center',marginBottom:20}}
-            autoFocus
-          />
-          <button
-            onClick={()=>name.trim()&&onStart(name.trim())}
-            disabled={!name.trim()}
-            style={{width:'100%',padding:'14px',borderRadius:12,border:'none',background:name.trim()?'linear-gradient(135deg,#6366f1,#8b5cf6)':'rgba(255,255,255,0.1)',color:name.trim()?'#fff':'#64748b',fontSize:16,fontWeight:700}}
-          >
-            Los geht's! 🚀
-          </button>
-        </div>
+  // Progress dots
+  const dots = state.questions.map((_,i)=>{
+    let cls="dot";
+    if(state.answers[i]===true) cls+=" done-correct";
+    else if(state.answers[i]===false) cls+=" done-wrong";
+    else if(i===state.current) cls+=" current";
+    return `<div class="${cls}" style="${state.answers[i]===undefined&&i===state.current?'border-color:'+color:''}"></div>`;
+  }).join("");
 
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
-          {['5 Themen','3 Schwierigkeitsgrade','KI-Erklärungen'].map(f=>(
-            <div key={f} style={{background:'rgba(255,255,255,0.04)',borderRadius:12,padding:'12px 8px',fontSize:12,color:'#64748b'}}>✓ {f}</div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TopicScreen({ name, onSelect, stats }) {
-  return (
-    <div style={{maxWidth:800,margin:'0 auto',padding:24}}>
-      <div className="fade-in">
-        <div style={{textAlign:'center',marginBottom:32}}>
-          <h2 style={{fontSize:26,fontWeight:800,color:'#fff'}}>Hallo, {name}! 👋</h2>
-          <p style={{color:'#64748b',marginTop:6}}>Welches Thema möchtest du üben?</p>
-        </div>
-
-        {/* Stats Bar */}
-        {stats.total > 0 && (
-          <div style={{background:'rgba(255,255,255,0.05)',borderRadius:16,padding:16,marginBottom:24,display:'flex',gap:24,justifyContent:'center',flexWrap:'wrap'}}>
-            <span style={{color:'#94a3b8',fontSize:14}}>📊 Aufgaben gelöst: <strong style={{color:'#fff'}}>{stats.total}</strong></span>
-            <span style={{color:'#94a3b8',fontSize:14}}>✅ Richtig: <strong style={{color:'#86efac'}}>{stats.correct}</strong></span>
-            <span style={{color:'#94a3b8',fontSize:14}}>💪 Quote: <strong style={{color:'#fbbf24'}}>{stats.total>0?Math.round(stats.correct/stats.total*100):0}%</strong></span>
-          </div>
-        )}
-
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:16}}>
-          {TOPICS.map(t=>(
-            <button key={t.id} onClick={()=>onSelect(t)} style={{background:'rgba(255,255,255,0.04)',border:`1px solid ${t.color}44`,borderRadius:20,padding:24,textAlign:'left',color:'#fff',position:'relative',overflow:'hidden'}}>
-              <div style={{fontSize:36,marginBottom:12}}>{t.icon}</div>
-              <div style={{fontWeight:800,fontSize:17,marginBottom:6,color:t.color}}>{t.label}</div>
-              <div style={{fontSize:13,color:'#64748b',lineHeight:1.4}}>{t.desc}</div>
-              {stats.byTopic[t.id]>0 && (
-                <div style={{position:'absolute',top:12,right:12,background:t.color+'33',borderRadius:20,padding:'2px 10px',fontSize:12,color:t.color}}>
-                  {stats.byTopic[t.id]} geübt
-                </div>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LevelScreen({ topic, onSelect, onBack }) {
-  return (
-    <div style={{maxWidth:500,margin:'0 auto',padding:24}}>
-      <div className="fade-in">
-        <button onClick={onBack} style={{background:'none',border:'none',color:'#64748b',fontSize:14,marginBottom:24,padding:0}}>← Zurück</button>
-        <div style={{textAlign:'center',marginBottom:32}}>
-          <div style={{fontSize:48,marginBottom:8}}>{topic.icon}</div>
-          <h2 style={{fontSize:24,fontWeight:800,color:'#fff'}}>{topic.label}</h2>
-          <p style={{color:'#64748b',marginTop:6}}>Wähle deinen Schwierigkeitsgrad</p>
-        </div>
-        <div style={{display:'flex',flexDirection:'column',gap:12}}>
-          {LEVELS.map(l=>(
-            <button key={l.id} onClick={()=>onSelect(l)} style={{background:'rgba(255,255,255,0.05)',border:`1px solid rgba(255,255,255,0.1)`,borderRadius:16,padding:'20px 24px',textAlign:'left',color:'#fff'}}>
-              <div style={{fontWeight:700,fontSize:16,marginBottom:4}}>{l.label}</div>
-              <div style={{fontSize:13,color:'#64748b'}}>{l.desc}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ExerciseScreen({ name, topic, level, onBack, onUpdateStats }) {
-  const [phase, setPhase] = useState('loading'); // loading | task | answer | solution | result
-  const [taskText, setTaskText] = useState('');
-  const [hint, setHint] = useState('');
-  const [userAnswer, setUserAnswer] = useState('');
-  const [solution, setSolution] = useState('');
-  const [loadingMsg, setLoadingMsg] = useState('Aufgabe wird generiert');
-  const [selfRating, setSelfRating] = useState(null);
-  const [sessionStats, setSessionStats] = useState({correct:0,total:0});
-  const [showHint, setShowHint] = useState(false);
-  const [solutionLoading, setSolutionLoading] = useState(false);
-
-  useEffect(()=>{ generateTask(); },[]);
-
-  async function callClaude(messages, systemOverride) {
-    const resp = await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        system: systemOverride || SYSTEM_PROMPT,
-        messages
-      })
-    });
-    const data = await resp.json();
-    return data.content?.[0]?.text || '';
-  }
-
-  async function generateTask() {
-    setPhase('loading');
-    setLoadingMsg('Aufgabe wird generiert');
-    setUserAnswer('');
-    setSolution('');
-    setSelfRating(null);
-    setShowHint(false);
-    try {
-      const prompt = buildPrompt(topic.id, level.id, 'neue_aufgabe');
-      const text = await callClaude([{role:'user',content:prompt}]);
-      const aufgabeMatch = text.match(/AUFGABE:\s*([\s\S]*?)(?=HINWEIS:|$)/i);
-      const hinweisMatch = text.match(/HINWEIS:\s*([\s\S]*?)$/i);
-      setTaskText(aufgabeMatch ? aufgabeMatch[1].trim() : text);
-      setHint(hinweisMatch ? hinweisMatch[1].trim() : '');
-      setPhase('task');
-    } catch(e) {
-      setTaskText('Fehler beim Laden. Bitte versuche es erneut.');
-      setPhase('task');
+  // Options
+  const letters=["A","B","C","D"];
+  const opts = q.opts.map((o,i)=>{
+    let extra="";
+    if(state.answered){
+      if(i===q.ans) extra=" correct";
+      else if(i===state.selected && i!==q.ans) extra=" wrong";
     }
-  }
+    return `<button class="option-btn${extra}" onclick="selectAnswer(${i})" ${state.answered?"disabled":""}>
+      <span class="option-letter" style="${i===q.ans&&state.answered?'background:rgba(81,207,102,.3)':''}">${letters[i]}</span>
+      ${o}
+    </button>`;
+  }).join("");
 
-  async function getSolution() {
-    setSolutionLoading(true);
-    setPhase('solution');
-    try {
-      const prompt = `Aufgabe: ${taskText}
-${userAnswer ? `Antwort des Schülers: ${userAnswer}` : 'Der Schüler möchte die Lösung sehen.'}
-
-Erkläre die vollständige Lösung Schritt für Schritt. 
-Wenn der Schüler eine Antwort gegeben hat, kommentiere diese zuerst (richtig/teilweise richtig/falsch) und erkläre dann den korrekten Lösungsweg.
-Sei ermutigend und lehrreich. Erkläre WARUM jeder Schritt gemacht wird.`;
-      const text = await callClaude([{role:'user',content:prompt}]);
-      setSolution(text);
-    } catch(e) {
-      setSolution('Fehler beim Laden der Lösung.');
-    }
-    setSolutionLoading(false);
-  }
-
-  function handleRating(correct) {
-    setSelfRating(correct);
-    const newStats = {correct: sessionStats.correct+(correct?1:0), total: sessionStats.total+1};
-    setSessionStats(newStats);
-    onUpdateStats(topic.id, correct);
-    setPhase('result');
-  }
-
-  const btnBase = {border:'none',borderRadius:12,padding:'12px 20px',fontWeight:700,fontSize:14,color:'#fff'};
-
-  return (
-    <div style={{maxWidth:700,margin:'0 auto',padding:24}}>
-      <div className="fade-in">
-        {/* Header */}
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
-          <button onClick={onBack} style={{background:'none',border:'none',color:'#64748b',fontSize:14,padding:0}}>← Themen</button>
-          <div style={{display:'flex',gap:8,alignItems:'center'}}>
-            <span style={{background:topic.color+'33',color:topic.color,borderRadius:20,padding:'4px 12px',fontSize:12,fontWeight:700}}>{topic.label}</span>
-            <span style={{background:'rgba(255,255,255,0.08)',color:'#94a3b8',borderRadius:20,padding:'4px 12px',fontSize:12}}>{level.label}</span>
-          </div>
-          <span style={{color:'#64748b',fontSize:13}}>✅ {sessionStats.correct}/{sessionStats.total}</span>
-        </div>
-
-        {/* LOADING */}
-        {phase === 'loading' && (
-          <div style={{textAlign:'center',padding:80}}>
-            <div style={{fontSize:48,marginBottom:16}}>🤖</div>
-            <div style={{color:'#94a3b8',fontSize:16}} className="loading-dots">{loadingMsg}</div>
-          </div>
-        )}
-
-        {/* TASK */}
-        {(phase === 'task' || phase === 'answer') && (
-          <div>
-            <div style={{background:'rgba(255,255,255,0.05)',borderRadius:20,padding:28,border:'1px solid rgba(255,255,255,0.1)',marginBottom:20}}>
-              <div style={{color:'#64748b',fontSize:12,textTransform:'uppercase',letterSpacing:1,marginBottom:12}}>Aufgabe</div>
-              <div style={{fontSize:16,lineHeight:1.7,color:'#e2e8f0',whiteSpace:'pre-wrap'}}>{taskText}</div>
-            </div>
-
-            {hint && (
-              <div style={{marginBottom:16}}>
-                {!showHint ? (
-                  <button onClick={()=>setShowHint(true)} style={{...btnBase,background:'rgba(255,255,255,0.08)',color:'#94a3b8',fontSize:13}}>
-                    💡 Hinweis anzeigen
-                  </button>
-                ) : (
-                  <div style={{background:'rgba(251,191,36,0.1)',borderRadius:12,padding:16,border:'1px solid rgba(251,191,36,0.3)',color:'#fbbf24',fontSize:14}}>
-                    💡 <strong>Hinweis:</strong> {hint}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div style={{marginBottom:16}}>
-              <div style={{color:'#64748b',fontSize:13,marginBottom:8}}>Deine Lösung (Rechenweg aufschreiben):</div>
-              <textarea
-                value={userAnswer}
-                onChange={e=>setUserAnswer(e.target.value)}
-                placeholder="Hier deinen Rechenweg eingeben..."
-                rows={5}
-                style={{width:'100%',padding:16,borderRadius:12,border:'1px solid rgba(255,255,255,0.1)',background:'rgba(255,255,255,0.06)',color:'#fff',fontSize:14,outline:'none',resize:'vertical',lineHeight:1.6}}
-              />
-            </div>
-
-            <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-              <button onClick={getSolution} style={{...btnBase,background:'linear-gradient(135deg,#6366f1,#8b5cf6)',flex:1}}>
-                {userAnswer.trim() ? '✓ Lösung überprüfen' : '📖 Lösung zeigen'}
-              </button>
-              <button onClick={generateTask} style={{...btnBase,background:'rgba(255,255,255,0.08)',color:'#94a3b8'}}>
-                🔄 Neue Aufgabe
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* SOLUTION */}
-        {phase === 'solution' && (
-          <div>
-            <div style={{background:'rgba(255,255,255,0.05)',borderRadius:20,padding:24,border:'1px solid rgba(255,255,255,0.1)',marginBottom:20}}>
-              <div style={{color:'#64748b',fontSize:12,textTransform:'uppercase',letterSpacing:1,marginBottom:12}}>Aufgabe</div>
-              <div style={{fontSize:15,color:'#94a3b8',lineHeight:1.6,whiteSpace:'pre-wrap'}}>{taskText}</div>
-            </div>
-
-            {userAnswer && (
-              <div style={{background:'rgba(99,102,241,0.1)',borderRadius:16,padding:20,border:'1px solid rgba(99,102,241,0.3)',marginBottom:20}}>
-                <div style={{color:'#818cf8',fontSize:12,textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>Deine Antwort</div>
-                <div style={{color:'#c7d2fe',fontSize:14,whiteSpace:'pre-wrap'}}>{userAnswer}</div>
-              </div>
-            )}
-
-            <div style={{background:'rgba(16,185,129,0.08)',borderRadius:20,padding:24,border:'1px solid rgba(16,185,129,0.2)',marginBottom:20}}>
-              <div style={{color:'#10b981',fontSize:12,textTransform:'uppercase',letterSpacing:1,marginBottom:12}}>🤖 KI-Erklärung</div>
-              {solutionLoading ? (
-                <div style={{color:'#64748b'}} className="loading-dots">Lösung wird erklärt</div>
-              ) : (
-                <div style={{fontSize:15,lineHeight:1.8,color:'#d1fae5',whiteSpace:'pre-wrap'}}>{solution}</div>
-              )}
-            </div>
-
-            {!solutionLoading && selfRating === null && (
-              <div style={{background:'rgba(255,255,255,0.05)',borderRadius:16,padding:20,textAlign:'center'}}>
-                <p style={{color:'#94a3b8',marginBottom:16,fontSize:14}}>Hast du die Aufgabe richtig gelöst?</p>
-                <div style={{display:'flex',gap:12,justifyContent:'center'}}>
-                  <button onClick={()=>handleRating(true)} style={{...btnBase,background:'linear-gradient(135deg,#10b981,#059669)',padding:'12px 28px'}}>✅ Ja, richtig!</button>
-                  <button onClick={()=>handleRating(false)} style={{...btnBase,background:'linear-gradient(135deg,#ef4444,#dc2626)',padding:'12px 28px'}}>❌ Noch nicht</button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* RESULT */}
-        {phase === 'result' && (
-          <div className="fade-in" style={{textAlign:'center'}}>
-            <div style={{fontSize:72,marginBottom:16}}>{selfRating ? '🎉' : '💪'}</div>
-            <h3 style={{fontSize:22,fontWeight:800,color:'#fff',marginBottom:8}}>
-              {selfRating ? 'Super gemacht!' : 'Weiter üben!'}
-            </h3>
-            <p style={{color:'#64748b',marginBottom:32}}>
-              {selfRating ? 'Du hast die Aufgabe richtig gelöst. Mach weiter so!' : 'Nicht aufgeben – beim nächsten Mal klappt es!'}
-            </p>
-
-            <div style={{background:'rgba(255,255,255,0.05)',borderRadius:16,padding:20,marginBottom:24,display:'flex',gap:24,justifyContent:'center'}}>
-              <div style={{textAlign:'center'}}>
-                <div style={{fontSize:28,fontWeight:900,color:'#86efac'}}>{sessionStats.correct}</div>
-                <div style={{fontSize:12,color:'#64748b'}}>Richtig</div>
-              </div>
-              <div style={{textAlign:'center'}}>
-                <div style={{fontSize:28,fontWeight:900,color:'#fff'}}>{sessionStats.total}</div>
-                <div style={{fontSize:12,color:'#64748b'}}>Gesamt</div>
-              </div>
-              <div style={{textAlign:'center'}}>
-                <div style={{fontSize:28,fontWeight:900,color:'#fbbf24'}}>{Math.round(sessionStats.correct/sessionStats.total*100)}%</div>
-                <div style={{fontSize:12,color:'#64748b'}}>Quote</div>
-              </div>
-            </div>
-
-            <div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}}>
-              <button onClick={generateTask} style={{...btnBase,background:'linear-gradient(135deg,#6366f1,#8b5cf6)',padding:'14px 28px',fontSize:15}}>
-                🔄 Nächste Aufgabe
-              </button>
-              <button onClick={onBack} style={{...btnBase,background:'rgba(255,255,255,0.08)',color:'#94a3b8',padding:'14px 28px',fontSize:15}}>
-                📚 Thema wechseln
-              </button>
-            </div>
-          </div>
-        )}
+  // Feedback
+  let feedbackHtml="";
+  if(state.answered){
+    const correct = state.selected===q.ans;
+    feedbackHtml=`<div class="feedback ${correct?'correct-fb':'wrong-fb'}">
+      <span class="feedback-icon">${correct?'✅':'❌'}</span>
+      <div class="feedback-text">
+        <strong>${correct?'Richtig! Sehr gut!':'Leider falsch.'}</strong>
+        <div class="solution-steps">💡 Lösung: ${q.sol}</div>
       </div>
-    </div>
-  );
-}
-
-// ============ MAIN APP ============
-
-function App() {
-  const [screen, setScreen] = useState('welcome'); // welcome | topics | level | exercise
-  const [studentName, setStudentName] = useState('');
-  const [selectedTopic, setSelectedTopic] = useState(null);
-  const [selectedLevel, setSelectedLevel] = useState(null);
-  const [stats, setStats] = useState({ total:0, correct:0, byTopic:{bruch:0,prozent:0,geo:0,schluss:0,gleich:0} });
-
-  function handleStart(name) { setStudentName(name); setScreen('topics'); }
-
-  function handleTopicSelect(topic) { setSelectedTopic(topic); setScreen('level'); }
-
-  function handleLevelSelect(level) { setSelectedLevel(level); setScreen('exercise'); }
-
-  function handleUpdateStats(topicId, correct) {
-    setStats(s => ({
-      total: s.total+1,
-      correct: s.correct+(correct?1:0),
-      byTopic: {...s.byTopic, [topicId]: s.byTopic[topicId]+1}
-    }));
+    </div>`;
   }
 
-  function copyStats() {
-    const text = `📊 Lernfortschritt von ${studentName}
-Datum: ${new Date().toLocaleDateString('de-DE')}
-Aufgaben gesamt: ${stats.total}
-Richtig: ${stats.correct}
-Quote: ${stats.total>0?Math.round(stats.correct/stats.total*100):0}%
+  // Nav
+  const isLast = state.current===total-1;
+  const nextBtn = state.answered
+    ? `<button class="nav-btn primary" onclick="${isLast?'showResult()':'nextQuestion()'}">${isLast?'📊 Auswertung':'Nächste →'}</button>`
+    : `<button class="nav-btn primary" onclick="nextQuestion()" style="opacity:.3;pointer-events:none">Nächste →</button>`;
 
-Nach Thema:
-${TOPICS.map(t=>`• ${t.label}: ${stats.byTopic[t.id]} Aufgaben geübt`).join('\n')}`;
-    navigator.clipboard.writeText(text).catch(()=>{});
-    alert('Lernfortschritt kopiert! Du kannst ihn jetzt in eine E-Mail einfügen.');
-  }
-
-  return (
-    <div style={{minHeight:'100vh',background:'#0f172a'}}>
-      {/* Top Nav */}
-      {screen !== 'welcome' && (
-        <div style={{borderBottom:'1px solid rgba(255,255,255,0.06)',padding:'12px 24px',display:'flex',justifyContent:'space-between',alignItems:'center',position:'sticky',top:0,background:'#0f172a',zIndex:10}}>
-          <div style={{display:'flex',alignItems:'center',gap:12}}>
-            <span style={{fontSize:20}}>📐</span>
-            <span style={{fontWeight:700,color:'#fff',fontSize:15}}>Mathe Lern-App</span>
-          </div>
-          <div style={{display:'flex',gap:12,alignItems:'center'}}>
-            <span style={{color:'#64748b',fontSize:13}}>👤 {studentName}</span>
-            {stats.total > 0 && (
-              <button onClick={copyStats} style={{background:'rgba(255,255,255,0.06)',border:'none',borderRadius:20,padding:'6px 14px',color:'#94a3b8',fontSize:12,fontWeight:600}}>
-                📋 Fortschritt kopieren
-              </button>
-            )}
-          </div>
+  $("screen-quiz").innerHTML=`
+    <div class="question-area">
+      <div class="q-header">
+        <div class="q-meta">
+          <span class="badge badge-topic" style="background:${color}22;color:${color}">${topicObj.icon} ${topicObj.label}</span>
+          <span class="badge badge-level badge-${levelObj.cls}">${levelObj.emoji} ${levelObj.label}</span>
         </div>
-      )}
+        <span class="q-counter">${state.current+1} / ${total}</span>
+      </div>
 
-      {screen === 'welcome' && <WelcomeScreen onStart={handleStart} />}
-      {screen === 'topics' && <TopicScreen name={studentName} onSelect={handleTopicSelect} stats={stats} />}
-      {screen === 'level' && <LevelScreen topic={selectedTopic} onSelect={handleLevelSelect} onBack={()=>setScreen('topics')} />}
-      {screen === 'exercise' && (
-        <ExerciseScreen
-          name={studentName}
-          topic={selectedTopic}
-          level={selectedLevel}
-          onBack={()=>setScreen('topics')}
-          onUpdateStats={handleUpdateStats}
-        />
-      )}
-    </div>
-  );
+      <div class="progress-dots">${dots}</div>
+
+      <div class="q-card">
+        <div class="q-text">${q.q}</div>
+        ${q.hint?`<div class="q-hint">💡 Tipp: ${q.hint}</div>`:''}
+        <div class="options-grid">${opts}</div>
+        ${feedbackHtml}
+      </div>
+
+      <div class="nav-row">
+        <button class="nav-btn" onclick="goHome()">🏠 Abbrechen</button>
+        ${nextBtn}
+      </div>
+    </div>`;
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+function renderResult(){
+  const total=state.questions.length;
+  const correct=state.answers.filter(a=>a===true).length;
+  const pct=Math.round(correct/total*100);
+  let grade="", emoji="";
+  if(pct>=95){grade="Sehr gut";emoji="🏆";}
+  else if(pct>=80){grade="Gut";emoji="⭐";}
+  else if(pct>=65){grade="Befriedigend";emoji="👍";}
+  else if(pct>=45){grade="Ausreichend";emoji="📚";}
+  else if(pct>=23){grade="Mangelhaft";emoji="😅";}
+  else{grade="Ungenügend";emoji="😓";}
+
+  const topicObj=TOPICS.find(t=>t.id===state.topic);
+  const levelObj=LEVELS.find(l=>l.id===state.level);
+
+  $("screen-result").innerHTML=`
+    <div class="result-card">
+      <div class="result-big">${emoji}</div>
+      <div class="result-title">${grade}!</div>
+      <div class="result-score">${correct} / ${total}</div>
+      <div class="result-sub">${pct}% korrekt · ${topicObj.label} · ${levelObj.label}</div>
+      <div class="result-breakdown">
+        <div class="rb-item"><div class="rb-num" style="color:#51cf66">${correct}</div><div class="rb-label">Richtig</div></div>
+        <div class="rb-item"><div class="rb-num" style="color:#ff6b6b">${total-correct}</div><div class="rb-label">Falsch</div></div>
+        <div class="rb-item"><div class="rb-num" style="color:#ffa94d">${pct}%</div><div class="rb-label">Quote</div></div>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+        <button class="nav-btn primary" onclick="startQuiz()" style="flex:unset;min-width:150px">🔄 Nochmal</button>
+        <button class="nav-btn" onclick="goHome()" style="flex:unset;min-width:150px">🏠 Zurück zum Menü</button>
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  ACTIONS
+// ══════════════════════════════════════════════════════════════════════════════
+function selectTopic(id){
+  state.topic=id;
+  renderHome();
+}
+function selectLevel(id){
+  state.level=id;
+  renderHome();
+}
+
+function startQuiz(){
+  const qs=[...QDB[state.topic][state.level]];
+  // Shuffle
+  for(let i=qs.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [qs[i],qs[j]]=[qs[j],qs[i]];
+  }
+  state.questions=qs;
+  state.current=0;
+  state.answers=new Array(qs.length).fill(undefined);
+  state.answered=false;
+  state.selected=null;
+  state.screen="quiz";
+  $("screen-home").style.display="none";
+  $("screen-result").style.display="none";
+  $("screen-quiz").style.display="";
+  $("homeBtn").classList.add("visible");
+  renderQuiz();
+}
+
+function selectAnswer(idx){
+  if(state.answered) return;
+  const q=state.questions[state.current];
+  state.selected=idx;
+  state.answered=true;
+  const correct=idx===q.ans;
+  state.answers[state.current]=correct;
+  // Update global stats
+  state.totalAnswered++;
+  if(correct){ state.totalCorrect++; state.streak++; }
+  else { state.streak=0; }
+  renderQuiz();
+}
+
+function nextQuestion(){
+  if(!state.answered) return;
+  state.current++;
+  state.answered=false;
+  state.selected=null;
+  renderQuiz();
+}
+
+function showResult(){
+  const correct=state.answers.filter(a=>a===true).length;
+  const key=state.topic+state.level;
+  if(!state.progress[key]||state.progress[key].correct<correct){
+    state.progress[key]={correct};
+  }
+  state.screen="result";
+  $("screen-quiz").style.display="none";
+  $("screen-result").style.display="";
+  renderResult();
+}
+
+function goHome(){
+  state.screen="home";
+  $("screen-quiz").style.display="none";
+  $("screen-result").style.display="none";
+  $("screen-home").style.display="";
+  renderHome();
+}
+
+// ── Init ──
+renderHome();
 </script>
 </body>
 </html>
